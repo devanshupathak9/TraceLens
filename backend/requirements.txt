@@ -1,0 +1,32 @@
+# Chat API runtime dependencies.
+#
+# Versions are pinned exactly so a rebuild produces the same tree. For a project
+# with more services it would be worth generating this from a .in file with
+# pip-tools or uv so transitive deps are pinned too; with a dependency set this
+# small, direct pins are enough.
+
+# --- web ------------------------------------------------------------------
+fastapi==0.140.0
+uvicorn[standard]==0.51.0
+
+# --- database -------------------------------------------------------------
+# The [asyncio] extra pulls in greenlet, which SQLAlchemy needs to bridge its
+# sync internals to async drivers. Pinned explicitly so it can't drift.
+sqlalchemy[asyncio]==2.0.51
+greenlet==3.5.4
+asyncpg==0.31.0
+alembic==1.18.5
+
+# --- config ---------------------------------------------------------------
+pydantic==2.13.4
+pydantic-settings==2.14.2
+
+# --- auth -----------------------------------------------------------------
+# pyjwt over python-jose: actively maintained and a smaller surface.
+pyjwt==2.13.0
+# pwdlib is the maintained successor to passlib, which is unmaintained and
+# throws a spurious version warning against bcrypt 4.x. Argon2id is the default.
+pwdlib[argon2]==0.3.0
+
+# --- llm providers --------------------------------------------------------
+openai==2.48.0

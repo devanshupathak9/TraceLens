@@ -19,6 +19,10 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
 
+    // Keep the incremental-build cache out of the repo root — it is machine
+    // specific and would otherwise churn in every diff.
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tsbuildinfo",
+
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
