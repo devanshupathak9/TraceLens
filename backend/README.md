@@ -126,21 +126,27 @@ Postgres, async SQLAlchemy 2.0, Alembic migrations. Chain:
 | Column | Type | Constraints |
 |---|---|---|
 | id | INT | PK, autoincrement |
-| user_id | INT | FK → users, NOT NULL, ON DELETE CASCADE, indexed |
-| title | VARCHAR(200) | NOT NULL, default "New chat" |
+| user_id | INT | FK → users, NOT NULL, ON DELETE CASCADE |
+| title | VARCHAR(200) | NOT NULL, server default "New chat" |
 | model | VARCHAR(100) | NOT NULL |
 | created_at | TIMESTAMPTZ | NOT NULL |
-| last_active_at | TIMESTAMPTZ | NOT NULL, indexed — the sidebar sort key |
+| last_active_at | TIMESTAMPTZ | NOT NULL — the sidebar sort key |
+
+Composite index `(user_id, last_active_at)` — covers the sidebar query
+("my conversations, most recent first") in one index.
 
 ### messages
 
 | Column | Type | Constraints |
 |---|---|---|
 | id | INT | PK, autoincrement |
-| conversation_id | INT | FK → conversations, NOT NULL, CASCADE, indexed |
+| conversation_id | INT | FK → conversations, NOT NULL, CASCADE |
 | role | VARCHAR(16) | NOT NULL, CHECK: `system` / `user` / `assistant` |
 | content | TEXT | NOT NULL |
-| created_at | TIMESTAMPTZ | NOT NULL, indexed |
+| created_at | TIMESTAMPTZ | NOT NULL |
+
+Composite index `(conversation_id, created_at)` — covers loading a transcript
+in order and building the LLM context window.
 
 ### inference_logs
 
@@ -150,7 +156,8 @@ Postgres, async SQLAlchemy 2.0, Alembic migrations. Chain:
 | conversation_id | INT | FK → conversations, NOT NULL, CASCADE, indexed |
 | provider | VARCHAR(50) | NOT NULL, indexed |
 | model | VARCHAR(100) | NOT NULL, indexed |
-| prompt_tokens / completion_tokens / total_tokens | INT | NOT NULL, default 0 |
+| prompt_tokens / completion_tokens | INT | NOT NULL, default 0 |
+| total_tokens | INT | NOT NULL, CHECK `= prompt_tokens + completion_tokens` |
 | latency_ms | INT | NOT NULL |
 | status | VARCHAR(16) | NOT NULL, CHECK: `success` / `failed` |
 | created_at | TIMESTAMPTZ | NOT NULL, indexed |

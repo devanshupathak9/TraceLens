@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Integer, String, Text, func
+from sqlalchemy import CheckConstraint, DateTime, Enum as SAEnum, ForeignKey, Index, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database import Base
@@ -41,17 +41,20 @@ class Conversation(Base):
     __tablename__ = "conversations"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    title: Mapped[str] = mapped_column(String(200), default="New chat", nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), default="New chat", server_default="New chat", nullable=False)
     model: Mapped[str] = mapped_column(String(100), nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    # Bumped on every new message — the sidebar sort key.
-    last_active_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+    # Bumped by the chat service on every new message — the sidebar sort key.
+    last_active_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="conversations")
     messages: Mapped[list["Message"]] = relationship(back_populates="conversation", cascade="all, delete-orphan", passive_deletes=True, order_by="Message.created_at")
     inference_logs: Mapped[list["InferenceLog"]] = relationship(back_populates="conversation", cascade="all, delete-orphan", passive_deletes=True)
+
+    # The sidebar query: this user's conversations, most recent first.
+    __table_args__ = (Index("ix_conversations_user_id_last_active_at", "user_id", "last_active_at"),)
 
 
 class Message(Base):
@@ -60,13 +63,16 @@ class Message(Base):
     __tablename__ = "messages"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    conversation_id: Mapped[int] = mapped_column(ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True)
+    conversation_id: Mapped[int] = mapped_column(ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False)
     role: Mapped[MessageRole] = mapped_column(_ROLE_ENUM, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     conversation: Mapped["Conversation"] = relationship(back_populates="messages")
+
+    # Loading a transcript in order, and building the context window.
+    __table_args__ = (Index("ix_messages_conversation_id_created_at", "conversation_id", "created_at"),)
 
 
 class InferenceLog(Base):
@@ -89,3 +95,12 @@ class InferenceLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
 
     conversation: Mapped["Conversation"] = relationship(back_populates="inference_logs")
+
+    # total_tokens is denormalised for easy querying; the CHECK makes it
+    # impossible for it to drift from the sum.
+    __table_args__ = (
+        CheckConstraint(
+            "total_tokens = prompt_tokens + completion_tokens",
+            name="total_tokens_matches_sum",
+        ),
+    )
