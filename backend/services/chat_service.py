@@ -1,17 +1,10 @@
 """
-One chat turn: store the user's message, call the LLM, store the reply, and
-record the call in inference_logs.
+One chat turn: store the user's message, call the LLM, store the reply.
 
-Messages hold only the transcript; every LLM call — success or failure — gets
-an InferenceLog row with provider, model, tokens, latency, and status. That's
-the separation the schema is built around.
-
-Deliberately non-streaming for now: one plain JSON round trip, easy to verify
-end to end. Streaming can replace the LLM call later without touching the
-storage logic around it.
+The backend no longer writes inference_logs itself — the tracelens SDK wraps
+the LLM call and ships latency/tokens/text to the logging service, whose lambda
+persists the row. The chat path stays fast; observability rides alongside.
 """
-
-import time
 
 import tracelens
 from openai import AsyncOpenAI
@@ -19,13 +12,7 @@ from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import get_settings
-from models import (
-    Conversation,
-    InferenceLog,
-    InferenceStatus,
-    Message,
-    MessageRole,
-)
+from models import Conversation, Message, MessageRole
 
 
 class LLMCallFailed(Exception):
@@ -57,28 +44,13 @@ class ChatService:
 
         llm_messages = self._build_context(conversation, content)
 
-        start = time.perf_counter()
         try:
-            reply_text, provider, usage = await self._complete(
-                conversation.model, llm_messages
-            )
+            reply_text = await self._complete(conversation, llm_messages)
         except Exception as exc:
-            # The user's message and the failed call are still recorded — the
-            # transcript keeps the question, and the log keeps the failure.
-            self.session.add(
-                InferenceLog(
-                    conversation_id=conversation.id,
-                    provider="openai",
-                    model=conversation.model,
-                    latency_ms=int((time.perf_counter() - start) * 1000),
-                    status=InferenceStatus.FAILED,
-                )
-            )
+            # Keep the user's message; the SDK already shipped the failed event.
             conversation.last_active_at = func.now()
             await self.session.commit()
             raise LLMCallFailed(str(exc))
-
-        latency_ms = int((time.perf_counter() - start) * 1000)
 
         assistant_message = Message(
             conversation_id=conversation.id,
@@ -86,21 +58,6 @@ class ChatService:
             content=reply_text,
         )
         self.session.add(assistant_message)
-
-        prompt_tokens = getattr(usage, "prompt_tokens", 0) or 0
-        completion_tokens = getattr(usage, "completion_tokens", 0) or 0
-        self.session.add(
-            InferenceLog(
-                conversation_id=conversation.id,
-                provider=provider,
-                model=conversation.model,
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                total_tokens=prompt_tokens + completion_tokens,
-                latency_ms=latency_ms,
-                status=InferenceStatus.SUCCESS,
-            )
-        )
 
         # Adding messages doesn't touch the conversations row, so bump
         # last_active_at by hand — it's the sidebar's sort key.
@@ -128,14 +85,15 @@ class ChatService:
             + [{"role": "user", "content": content}]
         )
 
-    async def _complete(self, model: str, llm_messages: list[dict[str, str]]):
-        """Returns (reply_text, provider, usage)."""
+    async def _complete(
+        self, conversation: Conversation, llm_messages: list[dict[str, str]]
+    ) -> str:
         settings = self.settings
 
         if not settings.openai_api_key:
             # No key configured: echo back, so the whole loop is testable
             # locally without an OpenAI account or spending tokens.
-            return f"(echo) {llm_messages[-1]['content']}", "echo", None
+            return f"(echo) {llm_messages[-1]['content']}"
 
         client = AsyncOpenAI(
             api_key=settings.openai_api_key,
@@ -143,8 +101,8 @@ class ChatService:
         )
         response = await tracelens.trace_call_async(
             client.chat.completions.create,
-            model=model,
+            _tracelens={"conversation_id": conversation.id},
+            model=conversation.model,
             messages=llm_messages,
         )
-        reply = response.choices[0].message.content or ""
-        return reply, "openai", response.usage
+        return response.choices[0].message.content or ""

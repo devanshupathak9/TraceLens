@@ -16,8 +16,10 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+# Sync handler on purpose: FastAPI runs it in a threadpool, so the blocking
+# DB write in the lambda can't stall the event loop.
 @app.post("/api/v1/logs", response_model=IngestResponse)
-async def ingest(event: InferenceEvent) -> IngestResponse:
+def ingest(event: InferenceEvent) -> IngestResponse:
     logger.info(
         "[%s] %s/%s status=%s latency=%dms tokens=%d/%d/%d input=%r output=%r",
         event.service,

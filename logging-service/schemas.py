@@ -8,6 +8,7 @@ class InferenceEvent(BaseModel):
     """One LLM call as reported by the tracelens SDK."""
 
     service: str = "unknown"
+    conversation_id: int | None = None
     provider: str = "openai"
     model: str
     input_text: str = ""

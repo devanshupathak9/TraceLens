@@ -31,30 +31,36 @@ def init(service: str, endpoint: str = "http://localhost:8001") -> None:
 
 
 def trace_call(fn, /, *args, **kwargs):
-    """Call `fn(*args, **kwargs)`, record the call, return the response unchanged."""
+    """Call `fn(*args, **kwargs)`, record the call, return the response unchanged.
+
+    Pass `_tracelens={...}` for extra event fields (e.g. conversation_id); it is
+    stripped before the wrapped function is called.
+    """
+    meta = kwargs.pop("_tracelens", None)
     start = time.perf_counter()
     try:
         response = fn(*args, **kwargs)
     except Exception as exc:
-        _ship(kwargs, None, start, error=exc)
+        _ship(kwargs, None, start, meta, error=exc)
         raise
-    _ship(kwargs, response, start)
+    _ship(kwargs, response, start, meta)
     return response
 
 
 async def trace_call_async(fn, /, *args, **kwargs):
     """Async variant of trace_call for AsyncOpenAI clients."""
+    meta = kwargs.pop("_tracelens", None)
     start = time.perf_counter()
     try:
         response = await fn(*args, **kwargs)
     except Exception as exc:
-        _ship(kwargs, None, start, error=exc)
+        _ship(kwargs, None, start, meta, error=exc)
         raise
-    _ship(kwargs, response, start)
+    _ship(kwargs, response, start, meta)
     return response
 
 
-def _ship(call_kwargs, response, start, error=None) -> None:
+def _ship(call_kwargs, response, start, meta=None, error=None) -> None:
     event = {
         "service": _config["service"],
         "provider": "openai",
@@ -75,5 +81,8 @@ def _ship(call_kwargs, response, start, error=None) -> None:
         event["prompt_tokens"] = getattr(usage, "prompt_tokens", 0) or 0
         event["completion_tokens"] = getattr(usage, "completion_tokens", 0) or 0
         event["total_tokens"] = event["prompt_tokens"] + event["completion_tokens"]
+
+    if isinstance(meta, dict):
+        event.update(meta)
 
     send_event(_config["endpoint"], event)

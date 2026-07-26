@@ -103,8 +103,12 @@ One POST is one chat turn: the user message is stored, the LLM is called with
 the system prompt plus the last `MAX_CONTEXT_MESSAGES` turns, the reply is
 stored, and both come back. Non-streaming for now — SSE streaming is planned.
 
-If the LLM call fails: the user message is kept, a `failed` row lands in
-`inference_logs`, and the endpoint returns 502.
+The backend does not write `inference_logs` itself: the tracelens SDK wraps the
+LLM call and ships the event (latency, tokens, text, conversation_id) to the
+logging service, whose lambda inserts the row. Keeps the chat path fast.
+
+If the LLM call fails: the user message is kept, the SDK ships a `failed`
+event, and the endpoint returns 502.
 
 ### Dashboard
 
