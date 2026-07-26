@@ -13,16 +13,16 @@ export function createConversation(title?: string): Promise<ConversationSummary>
 }
 
 /** Returns the conversation with its full message history. */
-export function getConversation(id: string, signal?: AbortSignal): Promise<Conversation> {
-  return request<Conversation>(`/conversations/${encodeURIComponent(id)}`, { signal })
+export function getConversation(id: number, signal?: AbortSignal): Promise<Conversation> {
+  return request<Conversation>(`/conversations/${id}`, { signal })
 }
 
-export function deleteConversation(id: string): Promise<void> {
-  return request<void>(`/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' })
+export function deleteConversation(id: number): Promise<void> {
+  return request<void>(`/conversations/${id}`, { method: 'DELETE' })
 }
 
-export function renameConversation(id: string, title: string): Promise<ConversationSummary> {
-  return request<ConversationSummary>(`/conversations/${encodeURIComponent(id)}`, {
+export function renameConversation(id: number, title: string): Promise<ConversationSummary> {
+  return request<ConversationSummary>(`/conversations/${id}`, {
     method: 'PATCH',
     body: { title },
   })

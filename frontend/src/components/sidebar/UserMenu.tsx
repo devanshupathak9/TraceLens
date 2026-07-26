@@ -1,6 +1,4 @@
-import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
-import { UpgradeGuestDialog } from '@/components/auth/UpgradeGuestDialog'
 import { LogoutIcon, MoonIcon, SunIcon } from '@/components/ui/Icons'
 import { initialsFor } from '@/lib/format'
 import type { Theme } from '@/lib/storage'
@@ -12,26 +10,19 @@ interface UserMenuProps {
 
 export function UserMenu({ theme, onToggleTheme }: UserMenuProps) {
   const { user, logout } = useAuth()
-  const [upgrading, setUpgrading] = useState(false)
 
   if (!user) return null
 
   return (
     <div className="user-menu">
-      {user.is_guest && (
-        <button type="button" className="upgrade-prompt" onClick={() => setUpgrading(true)}>
-          Save your chats →
-        </button>
-      )}
-
       <div className="user-row">
         <span className="avatar" aria-hidden="true">
           {initialsFor(user)}
         </span>
 
         <span className="user-identity">
-          <span className="user-name">{user.email ?? 'Guest'}</span>
-          <span className="user-sub">{user.is_guest ? 'This browser only' : 'Signed in'}</span>
+          <span className="user-name">{user.name}</span>
+          <span className="user-sub">{user.email}</span>
         </span>
 
         <button
@@ -54,8 +45,6 @@ export function UserMenu({ theme, onToggleTheme }: UserMenuProps) {
           <LogoutIcon width={16} height={16} />
         </button>
       </div>
-
-      {upgrading && <UpgradeGuestDialog onClose={() => setUpgrading(false)} />}
     </div>
   )
 }

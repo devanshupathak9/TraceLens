@@ -10,7 +10,6 @@ import {
 } from 'react'
 import * as authApi from '@/api/auth'
 import { getAuthToken, setAuthToken, setUnauthorizedHandler } from '@/api/client'
-import { getDeviceId } from '@/lib/device'
 import type { User } from '@/types'
 
 interface AuthContextValue {
@@ -19,10 +18,8 @@ interface AuthContextValue {
   initialising: boolean
   pending: boolean
   error: string | null
-  register: (email: string, password: string) => Promise<void>
+  register: (name: string, email: string, password: string) => Promise<void>
   login: (email: string, password: string) => Promise<void>
-  continueAsGuest: () => Promise<void>
-  upgradeGuest: (email: string, password: string) => Promise<void>
   logout: () => void
   clearError: () => void
 }
@@ -35,7 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Guards against a state update after unmount during the boot-time /auth/me.
+  // Guards against a state update after unmount during the boot-time /users/me.
   const mounted = useRef(true)
   useEffect(() => () => { mounted.current = false }, [])
 
@@ -61,11 +58,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const logout = useCallback(() => {
+    // Best-effort server call while the token is still set; the real logout is
+    // the client forgetting the token.
+    void authApi.logout().catch(() => {})
     setAuthToken(null)
     setUser(null)
     setError(null)
-    // The device id is intentionally kept: a guest who signs out and continues
-    // as a guest again lands back in the same account.
   }, [])
 
   // Any 401 from anywhere in the app ends the session.
@@ -102,10 +100,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       initialising,
       pending,
       error,
-      register: (email, password) => runAuth(() => authApi.register(email, password)),
+      register: (name, email, password) => runAuth(() => authApi.register(name, email, password)),
       login: (email, password) => runAuth(() => authApi.login(email, password)),
-      continueAsGuest: () => runAuth(() => authApi.loginAsGuest(getDeviceId())),
-      upgradeGuest: (email, password) => runAuth(() => authApi.upgradeGuest(email, password)),
       logout,
       clearError: () => setError(null),
     }),

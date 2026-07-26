@@ -6,11 +6,11 @@ import type { ConversationSummary } from '@/types'
 
 interface ConversationListProps {
   conversations: ConversationSummary[]
-  activeId: string | null
+  activeId: number | null
   loading: boolean
-  onSelect: (id: string) => void
-  onDelete: (id: string) => void
-  onRename: (id: string, title: string) => void
+  onSelect: (id: number) => void
+  onDelete: (id: number) => void
+  onRename: (id: number, title: string) => void
 }
 
 export function ConversationList({
@@ -26,7 +26,7 @@ export function ConversationList({
   const groups = useMemo(() => {
     const buckets = new Map<string, ConversationSummary[]>()
     for (const conversation of conversations) {
-      const label = relativeGroup(conversation.updated_at)
+      const label = relativeGroup(conversation.last_active_at)
       const existing = buckets.get(label)
       if (existing) existing.push(conversation)
       else buckets.set(label, [conversation])

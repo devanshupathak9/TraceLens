@@ -21,7 +21,6 @@ export function MessageBubble({ message }: MessageBubbleProps) {
       <div className="message-body">
         <header className="message-meta">
           <span className="message-role">{isUser ? 'You' : 'Assistant'}</span>
-          {message.model && <span className="message-model">{message.model}</span>}
           {!streaming && message.created_at && (
             <time dateTime={message.created_at}>{formatTime(message.created_at)}</time>
           )}

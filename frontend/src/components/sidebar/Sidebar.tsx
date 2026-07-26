@@ -24,7 +24,7 @@ export function Sidebar({ open, onClose, theme, onToggleTheme }: SidebarProps) {
   } = useChat()
 
   /** On narrow screens the sidebar overlays the chat, so selecting dismisses it. */
-  const selectAndClose = (id: string) => {
+  const selectAndClose = (id: number) => {
     selectConversation(id)
     onClose()
   }

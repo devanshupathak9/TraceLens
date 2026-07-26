@@ -2,13 +2,12 @@ import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { AuthForm } from './AuthForm'
 import { Banner } from '@/components/ui/Banner'
-import { Spinner } from '@/components/ui/Spinner'
 import { SparkIcon } from '@/components/ui/Icons'
 
 type Mode = 'login' | 'register'
 
 export function AuthScreen() {
-  const { pending, error, clearError, continueAsGuest } = useAuth()
+  const { error, clearError } = useAuth()
   const [mode, setMode] = useState<Mode>('login')
 
   const switchMode = (next: Mode) => {
@@ -53,29 +52,6 @@ export function AuthScreen() {
         {error && <Banner message={error} onDismiss={clearError} />}
 
         <AuthForm mode={mode} />
-
-        <div className="auth-divider">
-          <span>or</span>
-        </div>
-
-        <button
-          type="button"
-          className="button button-ghost button-block"
-          onClick={() => {
-            clearError()
-            // Failure is already surfaced through the context's error banner.
-            void continueAsGuest().catch(() => {})
-          }}
-          disabled={pending}
-        >
-          {pending ? <Spinner size={16} /> : 'Continue as guest'}
-        </button>
-
-        <p className="auth-footnote">
-          Guest sessions are tied to this browser using a locally generated device
-          id. Your chats stay available here, but they won't follow you to another
-          device until you register.
-        </p>
       </div>
     </div>
   )

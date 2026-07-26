@@ -30,7 +30,6 @@ export function titleFromMessage(text: string, maxLength = 48): string {
   return `${cleaned.slice(0, maxLength - 1).trimEnd()}…`
 }
 
-export function initialsFor(user: { email: string | null; is_guest: boolean }): string {
-  if (user.is_guest || !user.email) return 'G'
-  return user.email.trim().charAt(0).toUpperCase() || '?'
+export function initialsFor(user: { name: string }): string {
+  return user.name.trim().charAt(0).toUpperCase() || '?'
 }

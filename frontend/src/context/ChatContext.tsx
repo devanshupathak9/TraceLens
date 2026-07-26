@@ -9,25 +9,26 @@ import {
   type ReactNode,
 } from 'react'
 import * as conversationsApi from '@/api/conversations'
-import { sendMessage as streamMessage } from '@/api/chat'
+import * as chatApi from '@/api/chat'
 import { titleFromMessage } from '@/lib/format'
 import { useAuth } from './AuthContext'
 import type { ConversationSummary, Message } from '@/types'
 
 interface ChatContextValue {
   conversations: ConversationSummary[]
-  activeId: string | null
+  activeId: number | null
   messages: Message[]
   loadingList: boolean
   loadingMessages: boolean
+  /** True while a chat turn is in flight — the reply arrives in one piece. */
   streaming: boolean
   error: string | null
   startNewChat: () => void
-  selectConversation: (id: string) => void
+  selectConversation: (id: number) => void
   submitMessage: (content: string) => Promise<void>
   cancelStreaming: () => void
-  removeConversation: (id: string) => Promise<void>
-  renameConversation: (id: string, title: string) => Promise<void>
+  removeConversation: (id: number) => Promise<void>
+  renameConversation: (id: number, title: string) => Promise<void>
   dismissError: () => void
 }
 
@@ -41,14 +42,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
 
   const [conversations, setConversations] = useState<ConversationSummary[]>([])
-  const [activeId, setActiveId] = useState<string | null>(null)
+  const [activeId, setActiveId] = useState<number | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [loadingList, setLoadingList] = useState(false)
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [streaming, setStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  /** Aborts the in-flight generation when the user hits stop or switches away. */
+  /** Aborts the in-flight chat turn when the user hits stop or switches away. */
   const streamAbort = useRef<AbortController | null>(null)
   /** Aborts a history fetch that has been superseded by a newer selection. */
   const loadAbort = useRef<AbortController | null>(null)
@@ -109,7 +110,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const selectConversation = useCallback(
-    (id: string) => {
+    (id: number) => {
       if (id === activeId) return
 
       streamAbort.current?.abort()
@@ -136,7 +137,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
                 ? {
                     ...item,
                     title: conversation.title,
-                    updated_at: conversation.updated_at,
+                    last_active_at: conversation.last_active_at,
                     message_count: conversation.messages.length,
                   }
                 : item,
@@ -158,8 +159,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     streamAbort.current?.abort()
   }, [])
 
-  /** Rewrites the assistant placeholder in place as tokens arrive. */
-  const patchMessage = useCallback((id: string, patch: Partial<Message>) => {
+  const patchMessage = useCallback((id: Message['id'], patch: Partial<Message>) => {
     setMessages((current) =>
       current.map((message) => (message.id === id ? { ...message, ...patch } : message)),
     )
@@ -174,101 +174,66 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
       // Create the conversation on demand if this is a fresh chat.
       let conversationId = activeId
-      let createdConversation: ConversationSummary | null = null
-
-      if (!conversationId) {
+      if (conversationId === null) {
         try {
-          createdConversation = await conversationsApi.createConversation(
-            titleFromMessage(trimmed),
-          )
+          const created = await conversationsApi.createConversation(titleFromMessage(trimmed))
+          conversationId = created.id
+          setConversations((current) => [created, ...current])
+          setActiveId(conversationId)
         } catch (cause) {
           setError(cause instanceof Error ? cause.message : 'Could not start a conversation.')
           return
         }
-        conversationId = createdConversation.id
-        setConversations((current) => [createdConversation as ConversationSummary, ...current])
-        setActiveId(conversationId)
       }
 
+      // Optimistic pair: the user's message plus an assistant placeholder that
+      // shows a typing indicator until the server returns the stored turn.
       const now = new Date().toISOString()
-      const userMessage: Message = {
-        id: `local-user-${now}-${Math.random().toString(36).slice(2, 8)}`,
-        conversation_id: conversationId,
-        role: 'user',
-        content: trimmed,
-        created_at: now,
-        status: 'complete',
-      }
-      const placeholderId = `local-assistant-${now}-${Math.random().toString(36).slice(2, 8)}`
-      const placeholder: Message = {
-        id: placeholderId,
-        conversation_id: conversationId,
-        role: 'assistant',
-        content: '',
-        created_at: now,
-        status: 'streaming',
-      }
+      const localUserId = `local-user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      const placeholderId = `local-assistant-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
-      setMessages((current) => [...current, userMessage, placeholder])
+      setMessages((current) => [
+        ...current,
+        {
+          id: localUserId,
+          conversation_id: conversationId,
+          role: 'user',
+          content: trimmed,
+          created_at: now,
+          status: 'complete',
+        },
+        {
+          id: placeholderId,
+          conversation_id: conversationId,
+          role: 'assistant',
+          content: '',
+          created_at: now,
+          status: 'streaming',
+        },
+      ])
 
       const controller = new AbortController()
       streamAbort.current = controller
       setStreaming(true)
 
-      // Accumulated locally: appending to a ref avoids a re-render race where two
-      // deltas arriving in the same tick would both read the same stale state.
-      let accumulated = ''
-      let serverMessageId: string | null = null
-
       try {
-        await streamMessage({
-          conversationId,
-          content: trimmed,
-          signal: controller.signal,
-          onEvent: (event) => {
-            switch (event.type) {
-              case 'start':
-                serverMessageId = event.message_id || null
-                patchMessage(placeholderId, { model: event.model || null })
-                break
-              case 'delta':
-                accumulated += event.text
-                patchMessage(placeholderId, { content: accumulated })
-                break
-              case 'done':
-                patchMessage(placeholderId, {
-                  id: event.message_id || serverMessageId || placeholderId,
-                  content: accumulated,
-                  status: 'complete',
-                })
-                break
-              case 'error':
-                patchMessage(placeholderId, {
-                  content: accumulated,
-                  status: 'error',
-                  error: event.message,
-                })
-                break
-            }
-          },
-        })
-
-        // Defensive: if the server closed without an explicit done frame, don't
-        // leave the bubble stuck in a streaming state forever.
+        const result = await chatApi.sendMessage(conversationId, trimmed, controller.signal)
+        // Swap both optimistic messages for the server's stored versions.
         setMessages((current) =>
-          current.map((message) =>
-            message.id === placeholderId && message.status === 'streaming'
-              ? { ...message, status: 'complete' }
-              : message,
-          ),
+          current.map((message) => {
+            if (message.id === localUserId) return { ...result.user_message, status: 'complete' as const }
+            if (message.id === placeholderId) return { ...result.assistant_message, status: 'complete' as const }
+            return message
+          }),
         )
       } catch (cause) {
         if (isAbort(cause)) {
-          // Partial output is kept — it's still the model's answer, just truncated.
-          patchMessage(placeholderId, { content: accumulated, status: 'cancelled' })
+          // Cancelled client-side. The server may still finish and store the
+          // turn — reopening the conversation shows whatever it kept.
+          setMessages((current) => current.filter((message) => message.id !== placeholderId))
         } else {
           const message = cause instanceof Error ? cause.message : 'The request failed.'
-          patchMessage(placeholderId, { content: accumulated, status: 'error', error: message })
+          patchMessage(placeholderId, { status: 'error', error: message })
           setError(message)
         }
       } finally {
@@ -281,11 +246,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setConversations((current) => {
           const updated = current.map((item) =>
             item.id === conversationId
-              ? { ...item, updated_at: finishedAt, message_count: item.message_count + 2 }
+              ? { ...item, last_active_at: finishedAt, message_count: item.message_count + 2 }
               : item,
           )
           return [...updated].sort(
-            (a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at),
+            (a, b) => Date.parse(b.last_active_at) - Date.parse(a.last_active_at),
           )
         })
       }
@@ -294,7 +259,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   )
 
   const removeConversation = useCallback(
-    async (id: string) => {
+    async (id: number) => {
       // Snapshot for rollback: the row is removed immediately so the UI feels
       // instant, then restored if the server rejects the delete.
       const snapshot = conversations
@@ -317,7 +282,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   )
 
   const renameConversation = useCallback(
-    async (id: string, title: string) => {
+    async (id: number, title: string) => {
       const trimmed = title.trim()
       if (!trimmed) return
 

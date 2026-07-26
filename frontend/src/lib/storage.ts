@@ -7,7 +7,6 @@
  */
 
 const TOKEN_KEY = 'chatjippity.token'
-const DEVICE_KEY = 'chatjippity.device_id'
 const THEME_KEY = 'chatjippity.theme'
 
 export type Theme = 'light' | 'dark'
@@ -48,10 +47,4 @@ export const themeStorage = {
     return value === 'light' || value === 'dark' ? value : null
   },
   set: (theme: Theme) => write(THEME_KEY, theme),
-}
-
-export const deviceStorage = {
-  get: () => read(DEVICE_KEY),
-  set: (id: string) => write(DEVICE_KEY, id),
-  clear: () => remove(DEVICE_KEY),
 }

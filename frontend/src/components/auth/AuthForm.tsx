@@ -10,6 +10,7 @@ interface AuthFormProps {
 
 export function AuthForm({ mode }: AuthFormProps) {
   const { login, register, pending } = useAuth()
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -23,6 +24,10 @@ export function AuthForm({ mode }: AuthFormProps) {
 
     // Client-side checks only catch the obvious cases; the backend remains the
     // authority on email uniqueness and password policy.
+    if (isRegister && !name.trim()) {
+      setLocalError('Enter your name.')
+      return
+    }
     if (!email.includes('@')) {
       setLocalError('Enter a valid email address.')
       return
@@ -37,7 +42,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     }
 
     try {
-      if (isRegister) await register(email, password)
+      if (isRegister) await register(name.trim(), email, password)
       else await login(email, password)
     } catch {
       // Surfaced by the AuthContext banner.
@@ -46,6 +51,21 @@ export function AuthForm({ mode }: AuthFormProps) {
 
   return (
     <form className="auth-form" onSubmit={handleSubmit} noValidate>
+      {isRegister && (
+        <label className="field">
+          <span className="field-label">Name</span>
+          <input
+            type="text"
+            name="name"
+            autoComplete="name"
+            placeholder="Your name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            required
+          />
+        </label>
+      )}
+
       <label className="field">
         <span className="field-label">Email</span>
         <input

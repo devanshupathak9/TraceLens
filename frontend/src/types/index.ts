@@ -1,13 +1,12 @@
-export type Role = 'user' | 'assistant' | 'system'
+export type Role = 'user' | 'assistant'
 
 /** Lifecycle of an assistant message as far as the UI is concerned. */
 export type MessageStatus = 'complete' | 'streaming' | 'cancelled' | 'error'
 
 export interface User {
-  id: string
-  /** null for guest accounts, which are identified by device_id instead. */
-  email: string | null
-  is_guest: boolean
+  id: number
+  name: string
+  email: string
   created_at: string
 }
 
@@ -18,20 +17,21 @@ export interface AuthResponse {
 }
 
 export interface ConversationSummary {
-  id: string
+  id: number
   title: string
+  model: string
   created_at: string
-  updated_at: string
+  last_active_at: string
   message_count: number
 }
 
 export interface Message {
-  id: string
-  conversation_id: string
+  /** Server ids are numbers; optimistic local messages use string ids until reconciled. */
+  id: number | string
+  conversation_id: number
   role: Role
   content: string
   created_at: string
-  model?: string | null
   status?: MessageStatus
   /** Populated when status is 'error'. */
   error?: string | null
@@ -40,10 +40,3 @@ export interface Message {
 export interface Conversation extends ConversationSummary {
   messages: Message[]
 }
-
-/** Server-Sent Event payloads emitted while an assistant reply is generated. */
-export type ChatStreamEvent =
-  | { type: 'start'; conversation_id: string; message_id: string; model: string }
-  | { type: 'delta'; text: string }
-  | { type: 'done'; message_id: string; finish_reason?: string | null }
-  | { type: 'error'; message: string }
