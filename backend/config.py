@@ -6,14 +6,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """
-    Configuration read from environment variables or a local .env file.
-
-    Every value defaults to something safe for local development so the app boots
-    from a bare checkout. Values that would be dangerous in production are
-    rejected at startup by `check_production_safety()`.
-    """
-
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -21,7 +13,6 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # --- app --------------------------------------------------------------
     app_name: str = "ChatJippity API"
     environment: Literal["development", "staging", "production"] = "development"
     debug: bool = False
@@ -36,7 +27,7 @@ class Settings(BaseSettings):
     db_pool_size: int = 5
     db_max_overflow: int = 5
 
-    # --- auth -------------------------------------------------------------
+    # --- jwt ---------------------------------------------------------
     jwt_secret: str = "change-me-this-is-not-a-secret"
     jwt_algorithm: str = "HS256"
     access_token_ttl_minutes: int = 60 * 24 * 7
@@ -45,12 +36,9 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     default_model: str = "gpt-4.1-mini"
     llm_request_timeout_seconds: float = 60.0
-    # Bounded so the prompt (and the bill) can't grow without limit as a
-    # conversation gets long.
     max_context_messages: int = 20
     system_prompt: str = "You are ChatJippity, a concise and helpful assistant."
 
-    # --- telemetry --------------------------------------------------------
     tracelens_ingest_url: str = "http://localhost:8001"
     tracelens_api_key: str | None = None
 
@@ -77,7 +65,6 @@ class Settings(BaseSettings):
         return self.environment == "production"
 
     def check_production_safety(self) -> list[str]:
-        """Configuration problems that matter only in production."""
         if not self.is_production:
             return []
 
@@ -95,5 +82,4 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    """Cached so settings are parsed once per process."""
     return Settings()
