@@ -23,7 +23,7 @@ export function AuthScreen() {
           <span className="auth-logo">
             <SparkIcon width={22} height={22} />
           </span>
-          <h1>TraceLens</h1>
+          <h1>ChatJippity</h1>
           <p className="auth-tagline">
             {mode === 'login' ? 'Sign in to continue your chats.' : 'Create an account to save your chats.'}
           </p>

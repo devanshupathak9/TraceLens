@@ -59,7 +59,7 @@ export function ChatInput({
           className="composer-textarea"
           rows={1}
           value={value}
-          placeholder={streaming ? 'Waiting for the reply…' : 'Message TraceLens…'}
+          placeholder={streaming ? 'Waiting for the reply…' : 'Message ChatJippity…'}
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={handleKeyDown}
           aria-label="Message"

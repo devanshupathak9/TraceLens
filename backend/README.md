@@ -1,7 +1,9 @@
-# TraceLens Chat API
+# ChatJippity API
 
-FastAPI backend for the TraceLens chat app: authentication, conversations, and
-chat completions, with every LLM call recorded in `inference_logs`.
+FastAPI backend for ChatJippity, the TraceLens demo chat app: authentication,
+conversations, and chat completions, with every LLM call recorded in
+`inference_logs`. (TraceLens is the observability SDK that instruments this
+backend; ChatJippity is the chat product it observes.)
 
 ## Layout
 
@@ -113,7 +115,7 @@ Postgres, async SQLAlchemy 2.0, Alembic migrations. Chain:
 
 | Column | Type | Constraints |
 |---|---|---|
-| id | UUID | PK |
+| id | INT | PK, autoincrement |
 | name | VARCHAR(100) | NOT NULL |
 | email | VARCHAR(320) | NOT NULL, UNIQUE |
 | password_hash | VARCHAR(255) | NOT NULL |
@@ -123,8 +125,8 @@ Postgres, async SQLAlchemy 2.0, Alembic migrations. Chain:
 
 | Column | Type | Constraints |
 |---|---|---|
-| id | UUID | PK |
-| user_id | UUID | FK → users, NOT NULL, ON DELETE CASCADE, indexed |
+| id | INT | PK, autoincrement |
+| user_id | INT | FK → users, NOT NULL, ON DELETE CASCADE, indexed |
 | title | VARCHAR(200) | NOT NULL, default "New chat" |
 | model | VARCHAR(100) | NOT NULL |
 | created_at | TIMESTAMPTZ | NOT NULL |
@@ -134,8 +136,8 @@ Postgres, async SQLAlchemy 2.0, Alembic migrations. Chain:
 
 | Column | Type | Constraints |
 |---|---|---|
-| id | UUID | PK |
-| conversation_id | UUID | FK → conversations, NOT NULL, CASCADE, indexed |
+| id | INT | PK, autoincrement |
+| conversation_id | INT | FK → conversations, NOT NULL, CASCADE, indexed |
 | role | VARCHAR(16) | NOT NULL, CHECK: `system` / `user` / `assistant` |
 | content | TEXT | NOT NULL |
 | created_at | TIMESTAMPTZ | NOT NULL, indexed |
@@ -144,8 +146,8 @@ Postgres, async SQLAlchemy 2.0, Alembic migrations. Chain:
 
 | Column | Type | Constraints |
 |---|---|---|
-| id | UUID | PK |
-| conversation_id | UUID | FK → conversations, NOT NULL, CASCADE, indexed |
+| id | INT | PK, autoincrement |
+| conversation_id | INT | FK → conversations, NOT NULL, CASCADE, indexed |
 | provider | VARCHAR(50) | NOT NULL, indexed |
 | model | VARCHAR(100) | NOT NULL, indexed |
 | prompt_tokens / completion_tokens / total_tokens | INT | NOT NULL, default 0 |

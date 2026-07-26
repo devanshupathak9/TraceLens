@@ -16,7 +16,7 @@ from routers.chat import chat_router
 from routers.conversations import converstation_router
 from routers.users import user_router
 
-logger = logging.getLogger("tracelens")
+logger = logging.getLogger("chatjippity")
 
 REQUEST_ID_HEADER = "X-Request-ID"
 

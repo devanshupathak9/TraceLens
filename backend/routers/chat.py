@@ -1,4 +1,3 @@
-from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
 
@@ -15,7 +14,7 @@ chat_router = APIRouter(
 
 @chat_router.post("/{conversation_id}/messages", response_model=SendMessageResponse)
 async def send_message(
-    conversation_id: UUID,
+    conversation_id: int,
     payload: MessageCreate,
     user: CurrentUser,
     session: SessionDep,
@@ -47,7 +46,7 @@ async def send_message(
 
 @chat_router.get("/{conversation_id}/messages", response_model=list[MessageOut])
 async def list_messages(
-    conversation_id: UUID, user: CurrentUser, session: SessionDep
+    conversation_id: int, user: CurrentUser, session: SessionDep
 ) -> list[MessageOut]:
     """The conversation's transcript, oldest first."""
     try:

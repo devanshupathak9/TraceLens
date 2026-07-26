@@ -6,9 +6,9 @@
  * to "signed out on reload", which is acceptable; crashing is not.
  */
 
-const TOKEN_KEY = 'tracelens.token'
-const DEVICE_KEY = 'tracelens.device_id'
-const THEME_KEY = 'tracelens.theme'
+const TOKEN_KEY = 'chatjippity.token'
+const DEVICE_KEY = 'chatjippity.device_id'
+const THEME_KEY = 'chatjippity.theme'
 
 export type Theme = 'light' | 'dark'
 

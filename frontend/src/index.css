@@ -1,5 +1,5 @@
 /* ==========================================================================
-   TraceLens UI
+   ChatJippity UI
    Hand-rolled CSS rather than a utility framework: the surface area is small
    enough that a stylesheet is less machinery than a Tailwind/PostCSS pipeline,
    and it keeps the component markup readable.

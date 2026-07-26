@@ -1,6 +1,5 @@
 """Password hashing, JWT issuing/verification, and the current-user dependency."""
 
-import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any
 
@@ -47,12 +46,11 @@ def verify_password(plain: str, hashed: str) -> bool:
 # --- tokens ---------------------------------------------------------------
 
 
-def create_access_token(user_id: uuid.UUID, settings: Settings | None = None) -> str:
+def create_access_token(user_id: int, settings: Settings | None = None) -> str:
     """
     Issue a signed JWT for this user.
 
-    `sub` is the user id as a string — JWT requires `sub` to be a string, and a
-    raw UUID object won't serialise.
+    `sub` is the user id as a string — JWT requires `sub` to be a string.
     """
     settings = settings or get_settings()
     payload = {
@@ -118,8 +116,8 @@ async def get_current_user(
     payload = decode_access_token(credentials.credentials, settings)
 
     try:
-        user_id = uuid.UUID(payload.get("sub", ""))
-    except ValueError:
+        user_id = int(payload.get("sub", ""))
+    except (TypeError, ValueError):
         raise credentials_error()
 
     user = await session.get(User, user_id)

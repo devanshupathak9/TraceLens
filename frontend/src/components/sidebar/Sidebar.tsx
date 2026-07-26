@@ -34,7 +34,7 @@ export function Sidebar({ open, onClose, theme, onToggleTheme }: SidebarProps) {
       <div className="sidebar-header">
         <span className="sidebar-brand">
           <SparkIcon width={18} height={18} />
-          TraceLens
+          ChatJippity
         </span>
         <button
           type="button"

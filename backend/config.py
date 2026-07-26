@@ -22,14 +22,14 @@ class Settings(BaseSettings):
     )
 
     # --- app --------------------------------------------------------------
-    app_name: str = "TraceLens Chat API"
+    app_name: str = "ChatJippity API"
     environment: Literal["development", "staging", "production"] = "development"
     debug: bool = False
     api_prefix: str = "/api/v1"
     cors_origins: list[str] = ["http://localhost:5173"]
 
     # --- database ---------------------------------------------------------
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/tracelens"
+    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/chatjippity"
     database_url_direct: str | None = None
     db_transaction_pooler: bool = False
     db_echo: bool = False
@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     # Bounded so the prompt (and the bill) can't grow without limit as a
     # conversation gets long.
     max_context_messages: int = 20
-    system_prompt: str = "You are TraceLens, a concise and helpful assistant."
+    system_prompt: str = "You are ChatJippity, a concise and helpful assistant."
 
     # --- telemetry --------------------------------------------------------
     tracelens_ingest_url: str = "http://localhost:8001"

@@ -1,4 +1,3 @@
-from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
 
@@ -42,7 +41,7 @@ async def list_conversations(user: CurrentUser, session: SessionDep) -> list[Con
 
 @converstation_router.get("/{conversation_id}", response_model=ConversationDetail)
 async def get_conversation(
-    conversation_id: UUID, user: CurrentUser, session: SessionDep
+    conversation_id: int, user: CurrentUser, session: SessionDep
 ) -> ConversationDetail:
     try:
         conversation = await ConversationService(session).get(
@@ -58,7 +57,7 @@ async def get_conversation(
 
 @converstation_router.patch("/{conversation_id}", response_model=ConversationSummary)
 async def update_conversation(
-    conversation_id: UUID,
+    conversation_id: int,
     payload: ConversationUpdate,
     user: CurrentUser,
     session: SessionDep,
@@ -76,7 +75,7 @@ async def update_conversation(
 
 @converstation_router.delete("/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_conversation(
-    conversation_id: UUID, user: CurrentUser, session: SessionDep
+    conversation_id: int, user: CurrentUser, session: SessionDep
 ) -> None:
     try:
         await ConversationService(session).delete(conversation_id, user.id)

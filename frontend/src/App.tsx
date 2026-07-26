@@ -22,7 +22,7 @@ function Root() {
   if (initialising) {
     return (
       <div className="boot-screen">
-        <Spinner size={22} label="Starting TraceLens" />
+        <Spinner size={22} label="Starting ChatJippity" />
       </div>
     )
   }

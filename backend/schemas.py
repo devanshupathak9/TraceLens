@@ -5,7 +5,6 @@ These are the API contract: the README documents them, and the frontend must
 read exactly these field names.
 """
 
-import uuid
 from datetime import datetime
 from typing import Annotated, Literal
 
@@ -39,7 +38,7 @@ class LoginRequest(BaseModel):
 
 
 class UserOut(ORMModel):
-    id: uuid.UUID
+    id: int
     name: str
     email: str
     created_at: datetime
@@ -71,7 +70,7 @@ class ConversationUpdate(BaseModel):
 class ConversationSummary(ORMModel):
     """Sidebar row. `message_count` is computed, not a column."""
 
-    id: uuid.UUID
+    id: int
     title: str
     model: str
     created_at: datetime
@@ -80,8 +79,8 @@ class ConversationSummary(ORMModel):
 
 
 class MessageOut(ORMModel):
-    id: uuid.UUID
-    conversation_id: uuid.UUID
+    id: int
+    conversation_id: int
     role: MessageRole
     content: str
     created_at: datetime

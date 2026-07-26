@@ -4,10 +4,9 @@ Conversation CRUD.
 Ownership is enforced here, once: every lookup is scoped to the requesting
 user's id, so someone else's conversation simply doesn't exist from your point
 of view. That's why "not yours" is a 404 and never a 403 — a 403 would confirm
-to a guesser that the UUID is real.
+to a guesser that the id is real.
 """
 
-import uuid
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,7 +26,7 @@ class ConversationService:
 
     async def create(
         self,
-        user_id: uuid.UUID,
+        user_id: int,
         title: str | None = None,
         model: str | None = None,
     ) -> Conversation:
@@ -41,7 +40,7 @@ class ConversationService:
         await self.session.refresh(conversation)
         return conversation
 
-    async def list_for_user(self, user_id: uuid.UUID) -> list[tuple[Conversation, int]]:
+    async def list_for_user(self, user_id: int) -> list[tuple[Conversation, int]]:
         """This user's conversations, most recently active first, with message
         counts. The count comes from an outer join + group by rather than
         loading every message just to len() it."""
@@ -57,8 +56,8 @@ class ConversationService:
 
     async def get(
         self,
-        conversation_id: uuid.UUID,
-        user_id: uuid.UUID,
+        conversation_id: int,
+        user_id: int,
         *,
         with_messages: bool = False,
     ) -> Conversation:
@@ -78,13 +77,13 @@ class ConversationService:
         return conversation
 
     async def list_messages(
-        self, conversation_id: uuid.UUID, user_id: uuid.UUID
+        self, conversation_id: int, user_id: int
     ) -> list[Message]:
         # The get() call is the ownership check.
         conversation = await self.get(conversation_id, user_id, with_messages=True)
         return list(conversation.messages)
 
-    async def count_messages(self, conversation_id: uuid.UUID) -> int:
+    async def count_messages(self, conversation_id: int) -> int:
         result = await self.session.execute(
             select(func.count(Message.id)).where(Message.conversation_id == conversation_id)
         )
@@ -92,8 +91,8 @@ class ConversationService:
 
     async def update(
         self,
-        conversation_id: uuid.UUID,
-        user_id: uuid.UUID,
+        conversation_id: int,
+        user_id: int,
         *,
         title: str | None = None,
     ) -> Conversation:
@@ -105,7 +104,7 @@ class ConversationService:
         await self.session.refresh(conversation)
         return conversation
 
-    async def delete(self, conversation_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    async def delete(self, conversation_id: int, user_id: int) -> None:
         conversation = await self.get(conversation_id, user_id)
         # ON DELETE CASCADE wipes the messages and inference logs in the
         # database; passive_deletes stops SQLAlchemy loading them first.
