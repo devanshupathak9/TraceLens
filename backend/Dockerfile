@@ -1,6 +1,8 @@
+# Built with the REPO ROOT as context (see docker-compose.yml), because the
+# image needs ../sdk for the editable tracelens install:
+#   docker build -f backend/Dockerfile .
+
 # --- build ---------------------------------------------------------------
-# Dependencies are installed into a virtualenv in a builder stage so the final
-# image carries no compilers or build headers.
 FROM python:3.13-slim AS build
 
 ENV PIP_NO_CACHE_DIR=1 \
@@ -11,8 +13,9 @@ WORKDIR /app
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Copied on its own so the dependency layer is cached independently of source.
-COPY requirements.txt .
+# requirements.txt says `-e ../sdk`, resolved relative to the workdir /app.
+COPY sdk /sdk
+COPY backend/requirements.txt .
 RUN pip install -r requirements.txt
 
 # --- runtime -------------------------------------------------------------
@@ -32,9 +35,11 @@ RUN apt-get update \
 RUN useradd --create-home --uid 1000 appuser
 
 COPY --from=build /opt/venv /opt/venv
+# The editable install points at /sdk, so it must exist at runtime too.
+COPY --from=build /sdk /sdk
 
 WORKDIR /app
-COPY --chown=appuser:appuser . .
+COPY --chown=appuser:appuser backend/ .
 
 USER appuser
 
@@ -46,6 +51,6 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD curl -fsS http://localhost:8000/api/v1/health || exit 1
 
 # One worker per container. Scale with replicas rather than --workers: the
-# streaming endpoint is async and IO-bound, and multiple workers in one container
-# make CPU and memory limits much harder to reason about.
+# app is async and IO-bound, and multiple workers in one container make CPU
+# and memory limits much harder to reason about.
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,0 +1,7 @@
+# Applies to builds using the repo root as context (backend, logging-service).
+.git
+**/__pycache__
+**/.venv
+**/.env
+frontend/node_modules
+frontend/dist

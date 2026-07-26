@@ -1,0 +1,81 @@
+# The full TraceLens stack: postgres + migrations + chat backend +
+# logging service (with the embedded lambda) + frontend.
+#
+#   docker compose up --build
+#
+# Frontend:   http://localhost:3000
+# Chat API:   http://localhost:8000/docs
+# Logging:    http://localhost:8001/health
+#
+# OPENAI_API_KEY is read from the shell or a .env file next to this compose
+# file. Without it the backend answers in echo mode (and ships no events).
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: chatjippity
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d chatjippity"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # One-shot: applies Alembic migrations, then exits. The API waits for it so
+  # replicas never race each other running DDL.
+  migrate:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: tracelens-chat-api
+    command: alembic upgrade head
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/chatjippity
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  chat-api:
+    image: tracelens-chat-api
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/chatjippity
+      TRACELENS_INGEST_URL: http://logging-service:8001
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      JWT_SECRET: ${JWT_SECRET:-dev-only-compose-secret-change-in-production}
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      logging-service:
+        condition: service_started
+
+  logging-service:
+    build:
+      context: .
+      dockerfile: logging-service/Dockerfile
+    environment:
+      # The lambda strips +asyncpg itself, so the same URL shape works here.
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/chatjippity
+    ports:
+      - "8001:8001"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      chat-api:
+        condition: service_started
+
+volumes:
+  db-data:
