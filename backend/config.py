@@ -1,8 +1,8 @@
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -17,7 +17,9 @@ class Settings(BaseSettings):
     environment: Literal["development", "staging", "production"] = "development"
     debug: bool = False
     api_prefix: str = "/api/v1"
-    cors_origins: list[str] = ["http://localhost:5173"]
+    # NoDecode: stop pydantic-settings JSON-parsing this before the validator
+    # below can split the comma-separated .env value.
+    cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
 
     # --- database ---------------------------------------------------------
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/chatjippity"
