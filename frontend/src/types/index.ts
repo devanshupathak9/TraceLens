@@ -40,3 +40,22 @@ export interface Message {
 export interface Conversation extends ConversationSummary {
   messages: Message[]
 }
+
+export interface ModelUsage {
+  model: string
+  calls: number
+  avg_latency_ms: number
+  prompt_tokens: number
+  completion_tokens: number
+}
+
+export interface DashboardStats {
+  total_calls: number
+  success_calls: number
+  failed_calls: number
+  avg_latency_ms: number
+  total_prompt_tokens: number
+  total_completion_tokens: number
+  total_tokens: number
+  models: ModelUsage[]
+}

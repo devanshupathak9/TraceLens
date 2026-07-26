@@ -106,6 +106,18 @@ stored, and both come back. Non-streaming for now — SSE streaming is planned.
 If the LLM call fails: the user message is kept, a `failed` row lands in
 `inference_logs`, and the endpoint returns 502.
 
+### Dashboard
+
+| Method | Path | Returns |
+|---|---|---|
+| GET | `/dashboard` | inference stats for the signed-in user |
+
+Shape: `{total_calls, success_calls, failed_calls, avg_latency_ms,
+total_prompt_tokens, total_completion_tokens, total_tokens, models[]}` where
+each `models[]` row is `{model, calls, avg_latency_ms, prompt_tokens,
+completion_tokens}`. Aggregated from `inference_logs`, scoped to the user's
+conversations.
+
 ## Database schema
 
 Postgres, async SQLAlchemy 2.0, Alembic migrations. Chain:

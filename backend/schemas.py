@@ -67,6 +67,25 @@ class ConversationDetail(ConversationSummary):
     messages: list[MessageOut] = []
 
 
+class ModelUsage(BaseModel):
+    model: str
+    calls: int
+    avg_latency_ms: int
+    prompt_tokens: int
+    completion_tokens: int
+
+
+class DashboardStats(BaseModel):
+    total_calls: int
+    success_calls: int
+    failed_calls: int
+    avg_latency_ms: int
+    total_prompt_tokens: int
+    total_completion_tokens: int
+    total_tokens: int
+    models: list[ModelUsage]
+
+
 class MessageCreate(BaseModel):
     content: Annotated[str, Field(min_length=1, max_length=32_000)]
 

@@ -4,6 +4,7 @@ import { ChatProvider } from '@/context/ChatContext'
 import { AuthScreen } from '@/components/auth/AuthScreen'
 import { Sidebar } from '@/components/sidebar/Sidebar'
 import { ChatWindow } from '@/components/chat/ChatWindow'
+import { Dashboard } from '@/components/dashboard/Dashboard'
 import { Spinner } from '@/components/ui/Spinner'
 import { useTheme } from '@/hooks/useTheme'
 
@@ -45,6 +46,7 @@ function Shell({ theme, onToggleTheme }: ShellProps) {
   // Only meaningful below the mobile breakpoint, where the sidebar overlays the
   // chat; on desktop it is always visible and this state is inert.
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [view, setView] = useState<'chat' | 'dashboard'>('chat')
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -61,6 +63,8 @@ function Shell({ theme, onToggleTheme }: ShellProps) {
         onClose={() => setSidebarOpen(false)}
         theme={theme}
         onToggleTheme={onToggleTheme}
+        onOpenDashboard={() => setView('dashboard')}
+        onOpenChat={() => setView('chat')}
       />
 
       {sidebarOpen && (
@@ -71,7 +75,11 @@ function Shell({ theme, onToggleTheme }: ShellProps) {
         />
       )}
 
-      <ChatWindow onOpenSidebar={() => setSidebarOpen(true)} />
+      {view === 'chat' ? (
+        <ChatWindow onOpenSidebar={() => setSidebarOpen(true)} />
+      ) : (
+        <Dashboard onOpenSidebar={() => setSidebarOpen(true)} />
+      )}
     </div>
   )
 }

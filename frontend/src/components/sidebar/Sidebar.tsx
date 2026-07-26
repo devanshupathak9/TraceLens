@@ -2,7 +2,7 @@ import { useChat } from '@/context/ChatContext'
 import { ConversationList } from './ConversationList'
 import { NewChatButton } from './NewChatButton'
 import { UserMenu } from './UserMenu'
-import { CloseIcon, SparkIcon } from '@/components/ui/Icons'
+import { ChartIcon, CloseIcon, SparkIcon } from '@/components/ui/Icons'
 import type { Theme } from '@/lib/storage'
 
 interface SidebarProps {
@@ -10,9 +10,20 @@ interface SidebarProps {
   onClose: () => void
   theme: Theme
   onToggleTheme: () => void
+  /** Switches the main pane to the dashboard view. */
+  onOpenDashboard: () => void
+  /** Switches the main pane back to the chat view. */
+  onOpenChat: () => void
 }
 
-export function Sidebar({ open, onClose, theme, onToggleTheme }: SidebarProps) {
+export function Sidebar({
+  open,
+  onClose,
+  theme,
+  onToggleTheme,
+  onOpenDashboard,
+  onOpenChat,
+}: SidebarProps) {
   const {
     conversations,
     activeId,
@@ -26,6 +37,7 @@ export function Sidebar({ open, onClose, theme, onToggleTheme }: SidebarProps) {
   /** On narrow screens the sidebar overlays the chat, so selecting dismisses it. */
   const selectAndClose = (id: number) => {
     selectConversation(id)
+    onOpenChat()
     onClose()
   }
 
@@ -50,9 +62,21 @@ export function Sidebar({ open, onClose, theme, onToggleTheme }: SidebarProps) {
         <NewChatButton
           onClick={() => {
             startNewChat()
+            onOpenChat()
             onClose()
           }}
         />
+        <button
+          type="button"
+          className="new-chat-button"
+          onClick={() => {
+            onOpenDashboard()
+            onClose()
+          }}
+        >
+          <ChartIcon />
+          <span>Dashboard</span>
+        </button>
       </div>
 
       <ConversationList

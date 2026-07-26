@@ -33,6 +33,12 @@ export const PlusIcon = (props: IconProps) => (
   </Icon>
 )
 
+export const ChartIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M4 20V10M12 20V4M20 20v-7" />
+  </Icon>
+)
+
 export const SendIcon = (props: IconProps) => (
   <Icon {...props}>
     <path d="M12 19V5M5 12l7-7 7 7" />

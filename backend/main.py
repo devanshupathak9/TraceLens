@@ -15,6 +15,7 @@ from config import Settings, get_settings
 from database import check_connection, dispose_engine
 from routers.chat import chat_router
 from routers.conversations import converstation_router
+from routers.dashboard import dashboard_router
 from routers.users import user_router
 
 logger = logging.getLogger("chatjippity")
@@ -150,6 +151,7 @@ def create_app() -> FastAPI:
     app.include_router(user_router, prefix=settings.api_prefix)
     app.include_router(converstation_router, prefix=settings.api_prefix)
     app.include_router(chat_router, prefix=settings.api_prefix)
+    app.include_router(dashboard_router, prefix=settings.api_prefix)
 
     return app
 
