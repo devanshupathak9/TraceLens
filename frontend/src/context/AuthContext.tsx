@@ -33,8 +33,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
 
   // Guards against a state update after unmount during the boot-time /users/me.
+  // Set true in the effect body, not at declaration: StrictMode unmounts and
+  // remounts once in dev, and the ref must recover from the first cleanup.
   const mounted = useRef(true)
-  useEffect(() => () => { mounted.current = false }, [])
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
 
   // Restore the session from the stored token on first load.
   useEffect(() => {
