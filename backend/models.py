@@ -7,8 +7,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database import Base
 
 
+# No SYSTEM: the system prompt is injected from settings at request time,
+# never stored as a message row.
 class MessageRole(str, enum.Enum):
-    SYSTEM = "system"
     USER = "user"
     ASSISTANT = "assistant"
 

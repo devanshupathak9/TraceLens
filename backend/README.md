@@ -141,7 +141,7 @@ Composite index `(user_id, last_active_at)` — covers the sidebar query
 |---|---|---|
 | id | INT | PK, autoincrement |
 | conversation_id | INT | FK → conversations, NOT NULL, CASCADE |
-| role | VARCHAR(16) | NOT NULL, CHECK: `system` / `user` / `assistant` |
+| role | VARCHAR(16) | NOT NULL, CHECK: `user` / `assistant` |
 | content | TEXT | NOT NULL |
 | created_at | TIMESTAMPTZ | NOT NULL |
 
