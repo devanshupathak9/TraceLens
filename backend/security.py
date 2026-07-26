@@ -1,8 +1,4 @@
-"""
-Password hashing, JWT issuing/verification, and the current-user dependency.
-
-Structure only — bodies raise NotImplementedError.
-"""
+"""Password hashing, JWT issuing/verification, and the current-user dependency."""
 
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -32,17 +28,20 @@ bearer_scheme = HTTPBearer(auto_error=False)
 
 def hash_password(plain: str) -> str:
     """Hash a plaintext password for storage."""
-    raise NotImplementedError
+    return password_hash.hash(plain)
 
 
 def verify_password(plain: str, hashed: str) -> bool:
     """
     Check a password against a stored hash.
 
-    Must return False rather than raising when `hashed` is malformed, so a
-    corrupt row can't 500 the login endpoint.
+    Returns False rather than raising when `hashed` is malformed, so a corrupt
+    row can't 500 the login endpoint.
     """
-    raise NotImplementedError
+    try:
+        return password_hash.verify(plain, hashed)
+    except Exception:
+        return False
 
 
 # --- tokens ---------------------------------------------------------------
@@ -52,21 +51,31 @@ def create_access_token(user_id: uuid.UUID, settings: Settings | None = None) ->
     """
     Issue a signed JWT for this user.
 
-    Claims to include: `sub` (the user id as a string — JWT requires `sub` to be
-    a string, and a raw UUID object won't serialise), `exp`, and `iat`.
+    `sub` is the user id as a string — JWT requires `sub` to be a string, and a
+    raw UUID object won't serialise.
     """
-    raise NotImplementedError
+    settings = settings or get_settings()
+    payload = {
+        "sub": str(user_id),
+        "iat": datetime.now(timezone.utc),
+        "exp": token_expiry(settings),
+    }
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
 def decode_access_token(token: str, settings: Settings | None = None) -> dict[str, Any]:
     """
     Verify and decode a token.
 
-    Raise `credentials_error()` on any failure — expired, wrong signature,
-    malformed. Do not leak which one it was: that distinction is useful only to
-    an attacker.
+    Raises `credentials_error()` on any failure — expired, wrong signature,
+    malformed. Deliberately doesn't leak which one it was: that distinction is
+    useful only to an attacker.
     """
-    raise NotImplementedError
+    settings = settings or get_settings()
+    try:
+        return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+    except jwt.InvalidTokenError:
+        raise credentials_error()
 
 
 def credentials_error(detail: str = "Could not validate credentials") -> HTTPException:
@@ -99,11 +108,25 @@ async def get_current_user(
     """
     Resolve the bearer token to a User row.
 
-    Raise `credentials_error()` when the header is absent, the token is invalid,
+    Raises `credentials_error()` when the header is absent, the token is invalid,
     or the user no longer exists — a token outliving its user must not be treated
     as valid.
     """
-    raise NotImplementedError
+    if credentials is None:
+        raise credentials_error()
+
+    payload = decode_access_token(credentials.credentials, settings)
+
+    try:
+        user_id = uuid.UUID(payload.get("sub", ""))
+    except ValueError:
+        raise credentials_error()
+
+    user = await session.get(User, user_id)
+    if user is None:
+        raise credentials_error()
+
+    return user
 
 
 # Aliases so route signatures stay short: `user: CurrentUser`.

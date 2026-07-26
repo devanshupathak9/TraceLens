@@ -68,9 +68,9 @@ class User(Base, TimestampMixin):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
 
-    # Nullable because guests have no email. Unique so registration and the
-    # guest-upgrade path both fail loudly on a duplicate rather than silently
-    # creating a second account.
+    # Nullable because guests have neither. Unique so registration fails loudly
+    # on a duplicate rather than silently creating a second account.
+    username: Mapped[str | None] = mapped_column(String(50), unique=True, index=True)
     email: Mapped[str | None] = mapped_column(String(320), unique=True, index=True)
     password_hash: Mapped[str | None] = mapped_column(String(255))
 

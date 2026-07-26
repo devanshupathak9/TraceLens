@@ -18,7 +18,8 @@ asyncpg==0.31.0
 alembic==1.18.5
 
 # --- config ---------------------------------------------------------------
-pydantic==2.13.4
+# [email] pulls in email-validator, which EmailStr in schemas.py requires.
+pydantic[email]==2.13.4
 pydantic-settings==2.14.2
 
 # --- auth -----------------------------------------------------------------

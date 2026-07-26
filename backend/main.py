@@ -12,7 +12,9 @@ from fastapi.responses import JSONResponse
 
 from config import Settings, get_settings
 from database import check_connection, dispose_engine
-from routes import router
+from routers.chat import chat_router
+from routers.conversations import converstation_router
+from routers.users import user_router
 
 logger = logging.getLogger("tracelens")
 
@@ -137,7 +139,14 @@ def create_app() -> FastAPI:
             content={"detail": detail, "request_id": request_id},
         )
 
-    app.include_router(router, prefix=settings.api_prefix)
+    @app.get(f"{settings.api_prefix}/health", tags=["Health"])
+    async def health() -> dict[str, str]:
+        """Liveness probe — the Dockerfile healthcheck hits this."""
+        return {"status": "ok"}
+
+    app.include_router(user_router, prefix=settings.api_prefix)
+    app.include_router(converstation_router, prefix=settings.api_prefix)
+    app.include_router(chat_router, prefix=settings.api_prefix)
 
     return app
 
