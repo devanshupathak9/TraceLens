@@ -1,6 +1,5 @@
-# Unlike the two services, the SDK IS a package — it gets imported by the backend,
-# so it needs installable metadata. This file is what makes `pip install -e ./sdk`
-# work; without it there's nothing to install.
+# The SDK is a package — it gets imported by the backend, so it needs
+# installable metadata: `pip install -e ./sdk`.
 
 [build-system]
 requires = ["hatchling"]
@@ -11,16 +10,7 @@ name = "tracelens"
 version = "0.1.0"
 description = "Lightweight inference logging for LLM applications"
 requires-python = ">=3.11"
-dependencies = [
-    "httpx>=0.27",
-    "pydantic>=2.7",
-]
-
-# openai is intentionally NOT a dependency. The SDK instruments whatever version
-# the host application already has, and forcing a version would risk conflicting
-# with theirs. instrument_openai() degrades to a warning if it isn't installed.
-[project.optional-dependencies]
-dev = ["pytest>=8", "pytest-asyncio>=0.23", "openai>=1.40"]
+dependencies = []
 
 [tool.hatch.build.targets.wheel]
 packages = ["tracelens"]

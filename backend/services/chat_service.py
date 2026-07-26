@@ -13,6 +13,7 @@ storage logic around it.
 
 import time
 
+import tracelens
 from openai import AsyncOpenAI
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -140,9 +141,10 @@ class ChatService:
             api_key=settings.openai_api_key,
             timeout=settings.llm_request_timeout_seconds,
         )
-        response = await client.chat.completions.create(
+        response = await tracelens.trace_call_async(
+            client.chat.completions.create,
             model=model,
-            messages=llm_messages,  # type: ignore[arg-type]
+            messages=llm_messages,
         )
         reply = response.choices[0].message.content or ""
         return reply, "openai", response.usage

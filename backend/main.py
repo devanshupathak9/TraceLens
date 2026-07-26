@@ -5,6 +5,7 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
+import tracelens
 from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -49,6 +50,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         raise RuntimeError("Unsafe production configuration: " + "; ".join(problems))
 
     logger.info("starting %s (environment=%s)", settings.app_name, settings.environment)
+
+    tracelens.init(service="chatjippity-backend", endpoint=settings.tracelens_ingest_url)
 
     # Logged, not enforced: the app should still start and report 503 from
     # /health/ready if the database is briefly unavailable.

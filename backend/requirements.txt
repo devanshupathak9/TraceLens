@@ -31,3 +31,7 @@ pwdlib[argon2]==0.3.0
 
 # --- llm providers --------------------------------------------------------
 openai==2.48.0
+
+# --- observability --------------------------------------------------------
+# The tracelens SDK from this repo; editable install so changes apply live.
+-e ../sdk
