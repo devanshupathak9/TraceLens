@@ -186,6 +186,6 @@ Set via environment or `.env` (see `.env.example`). The important ones:
 | `DATABASE_URL` | local postgres | asyncpg URL |
 | `JWT_SECRET` | dev placeholder | **must** change in production — startup refuses otherwise |
 | `OPENAI_API_KEY` | unset | unset = echo mode |
-| `DEFAULT_MODEL` | `gpt-4.1-mini` | per-conversation override via POST /conversations |
-| `MAX_CONTEXT_MESSAGES` | 20 | context window cap, bounds the token bill |
+| `DEFAULT_MODEL` | `gpt-4o` | per-conversation override via POST /conversations |
+| `MAX_CONTEXT_MESSAGES` | 10 | context window cap, bounds the token bill |
 | `CORS_ORIGINS` | `http://localhost:5173` | comma-separated |

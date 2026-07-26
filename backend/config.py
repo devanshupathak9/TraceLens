@@ -34,9 +34,9 @@ class Settings(BaseSettings):
 
     # --- llm --------------------------------------------------------------
     openai_api_key: str | None = None
-    default_model: str = "gpt-4.1-mini"
+    default_model: str = "gpt-4o"
     llm_request_timeout_seconds: float = 60.0
-    max_context_messages: int = 20
+    max_context_messages: int = 10
     system_prompt: str = "You are ChatJippity, a concise and helpful assistant."
 
     tracelens_ingest_url: str = "http://localhost:8001"
