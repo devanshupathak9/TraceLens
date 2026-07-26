@@ -5,7 +5,6 @@ from security import CurrentUser, SessionDep, create_access_token
 from services.user_service import (
     EmailAlreadyRegistered,
     InvalidCredentials,
-    UsernameTaken,
     UserService,
 )
 
@@ -21,8 +20,6 @@ async def register(payload: RegisterRequest, session: SessionDep) -> TokenRespon
         user = await UserService(session).register(payload)
     except EmailAlreadyRegistered:
         raise HTTPException(status.HTTP_409_CONFLICT, "An account with this email already exists")
-    except UsernameTaken:
-        raise HTTPException(status.HTTP_409_CONFLICT, "This username is already taken")
 
     return TokenResponse(
         access_token=create_access_token(user.id),

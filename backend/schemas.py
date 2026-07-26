@@ -1,27 +1,21 @@
 """
-Pydantic request and response models.
+Pydantic request and response models — all request validation lives here.
 
-These mirror `frontend/src/types/index.ts` exactly. The frontend is the contract:
-if a field name changes here it must change there too, or the UI silently reads
-`undefined`.
+These are the API contract: the README documents them, and the frontend must
+read exactly these field names.
 """
 
-import json
 import uuid
 from datetime import datetime
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from models import MessageRole, MessageStatus
+from models import MessageRole
 
-# Matches the frontend's client-side check in AuthForm.tsx. Keep them in step, or
-# users get a server error for something the form said was fine.
 Password = Annotated[str, Field(min_length=8, max_length=128)]
-
-# Letters, digits, underscore. The pattern is the validation — no separate check
-# needed anywhere else.
-Username = Annotated[str, Field(min_length=3, max_length=50, pattern=r"^[A-Za-z0-9_]+$")]
+Name = Annotated[str, Field(min_length=1, max_length=100)]
+Title = Annotated[str, Field(min_length=1, max_length=200)]
 
 
 class ORMModel(BaseModel):
@@ -30,11 +24,11 @@ class ORMModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-# --- auth -----------------------------------------------------------------
+# --- users ----------------------------------------------------------------
 
 
 class RegisterRequest(BaseModel):
-    username: Username
+    name: Name
     email: EmailStr
     password: Password
 
@@ -46,9 +40,8 @@ class LoginRequest(BaseModel):
 
 class UserOut(ORMModel):
     id: uuid.UUID
-    username: str | None
-    email: str | None
-    is_guest: bool
+    name: str
+    email: str
     created_at: datetime
 
 
@@ -62,13 +55,17 @@ class TokenResponse(BaseModel):
 
 
 class ConversationCreate(BaseModel):
-    """Title is optional — the frontend derives one from the first message."""
+    """Both optional: title defaults to "New chat" (renamed by the first
+    message), model defaults to the server's configured default."""
 
-    title: Annotated[str, Field(min_length=1, max_length=200)] | None = None
+    title: Title | None = None
+    model: str | None = None
 
 
 class ConversationUpdate(BaseModel):
-    title: Annotated[str, Field(min_length=1, max_length=200)]
+    """PATCH semantics — only the fields present are changed."""
+
+    title: Title | None = None
 
 
 class ConversationSummary(ORMModel):
@@ -76,8 +73,9 @@ class ConversationSummary(ORMModel):
 
     id: uuid.UUID
     title: str
+    model: str
     created_at: datetime
-    updated_at: datetime
+    last_active_at: datetime
     message_count: int = 0
 
 
@@ -87,17 +85,13 @@ class MessageOut(ORMModel):
     role: MessageRole
     content: str
     created_at: datetime
-    model: str | None = None
-    status: MessageStatus = MessageStatus.COMPLETE
-    # Read from the ORM attribute `error_message`, emitted as `error` because
-    # that's the key the frontend's Message type reads. A serialization_alias
-    # rather than a validation_alias so from_attributes still finds the column;
-    # FastAPI serialises responses with by_alias=True, so the output key is right.
-    error_message: str | None = Field(default=None, serialization_alias="error")
 
 
 class ConversationDetail(ConversationSummary):
     messages: list[MessageOut] = []
+
+
+# --- messages (chat) ------------------------------------------------------
 
 
 class MessageCreate(BaseModel):
@@ -109,50 +103,3 @@ class SendMessageResponse(BaseModel):
 
     user_message: MessageOut
     assistant_message: MessageOut
-
-
-# --- SSE stream events ----------------------------------------------------
-#
-# The frontend's toStreamEvent (frontend/src/api/chat.ts) reads the `type` field
-# inside the payload and also accepts the SSE event name, so `to_frame()` sets
-# both. Emitting only one of the four shapes below will leave the UI's assistant
-# bubble stuck in its streaming state.
-
-
-class StreamEvent(BaseModel):
-    type: str
-
-    def to_frame(self) -> str:
-        """
-        Render as an SSE frame.
-
-        The trailing blank line is the frame terminator and is not optional —
-        without it the client buffers forever waiting for the delimiter.
-        """
-        payload = json.dumps(self.model_dump(mode="json"))
-        return f"event: {self.type}\ndata: {payload}\n\n"
-
-
-class StreamStart(StreamEvent):
-    type: Literal["start"] = "start"
-    conversation_id: uuid.UUID
-    message_id: uuid.UUID
-    model: str
-
-
-class StreamDelta(StreamEvent):
-    type: Literal["delta"] = "delta"
-    text: str
-
-
-class StreamDone(StreamEvent):
-    type: Literal["done"] = "done"
-    message_id: uuid.UUID
-    finish_reason: str | None = None
-    prompt_tokens: int | None = None
-    completion_tokens: int | None = None
-
-
-class StreamError(StreamEvent):
-    type: Literal["error"] = "error"
-    message: str

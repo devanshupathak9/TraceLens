@@ -43,7 +43,7 @@ EXPOSE 8000
 # Hits liveness, not readiness: a database outage shouldn't make Docker restart
 # a process that is working correctly.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD curl -fsS http://localhost:8000/api/health || exit 1
+    CMD curl -fsS http://localhost:8000/api/v1/health || exit 1
 
 # One worker per container. Scale with replicas rather than --workers: the
 # streaming endpoint is async and IO-bound, and multiple workers in one container

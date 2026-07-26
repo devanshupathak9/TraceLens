@@ -19,10 +19,6 @@ class EmailAlreadyRegistered(Exception):
     pass
 
 
-class UsernameTaken(Exception):
-    pass
-
-
 class InvalidCredentials(Exception):
     pass
 
@@ -39,20 +35,12 @@ class UserService:
         )
         return result.scalar_one_or_none()
 
-    async def get_by_username(self, username: str) -> User | None:
-        result = await self.session.execute(
-            select(User).where(User.username == username)
-        )
-        return result.scalar_one_or_none()
-
     async def register(self, data: RegisterRequest) -> User:
         if await self.get_by_email(data.email) is not None:
             raise EmailAlreadyRegistered
-        if await self.get_by_username(data.username) is not None:
-            raise UsernameTaken
 
         user = User(
-            username=data.username,
+            name=data.name,
             email=data.email.lower(),
             password_hash=hash_password(data.password),
         )
@@ -62,7 +50,7 @@ class UserService:
             await self.session.commit()
         except IntegrityError:
             # Two requests registering the same email at the same time both pass
-            # the checks above; the unique constraint catches the loser here.
+            # the check above; the unique constraint catches the loser here.
             await self.session.rollback()
             raise EmailAlreadyRegistered
 
@@ -74,9 +62,7 @@ class UserService:
 
         # One error for "no such email" and "wrong password" — telling them
         # apart lets an attacker probe which emails have accounts.
-        if user is None or not user.password_hash:
-            raise InvalidCredentials
-        if not verify_password(password, user.password_hash):
+        if user is None or not verify_password(password, user.password_hash):
             raise InvalidCredentials
 
         return user

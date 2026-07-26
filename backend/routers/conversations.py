@@ -16,14 +16,16 @@ converstation_router = APIRouter(
     tags=["Conversations"],
 )
 
-# Paths use "" rather than "/" so /api/conversations matches without a redirect.
+# Paths use "" rather than "/" so /api/v1/conversations matches without a redirect.
 
 
 @converstation_router.post("", response_model=ConversationSummary, status_code=status.HTTP_201_CREATED)
 async def create_conversation(
     payload: ConversationCreate, user: CurrentUser, session: SessionDep
 ) -> ConversationSummary:
-    conversation = await ConversationService(session).create(user.id, payload.title)
+    conversation = await ConversationService(session).create(
+        user.id, title=payload.title, model=payload.model
+    )
     return ConversationSummary.model_validate(conversation)
 
 
@@ -54,7 +56,7 @@ async def get_conversation(
     return detail
 
 
-@converstation_router.put("/{conversation_id}", response_model=ConversationSummary)
+@converstation_router.patch("/{conversation_id}", response_model=ConversationSummary)
 async def update_conversation(
     conversation_id: UUID,
     payload: ConversationUpdate,
@@ -63,7 +65,7 @@ async def update_conversation(
 ) -> ConversationSummary:
     service = ConversationService(session)
     try:
-        conversation = await service.rename(conversation_id, user.id, payload.title)
+        conversation = await service.update(conversation_id, user.id, title=payload.title)
     except ConversationNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Conversation not found")
 

@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     app_name: str = "TraceLens Chat API"
     environment: Literal["development", "staging", "production"] = "development"
     debug: bool = False
-    api_prefix: str = "/api"
+    api_prefix: str = "/api/v1"
     cors_origins: list[str] = ["http://localhost:5173"]
 
     # --- database ---------------------------------------------------------

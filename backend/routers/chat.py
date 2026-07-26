@@ -4,12 +4,12 @@ from fastapi import APIRouter, HTTPException, status
 
 from schemas import MessageCreate, MessageOut, SendMessageResponse
 from security import CurrentUser, SessionDep
-from services.chat_service import ChatService
+from services.chat_service import ChatService, LLMCallFailed
 from services.conversation_service import ConversationNotFound, ConversationService
 
 chat_router = APIRouter(
     prefix="/conversations",
-    tags=["Chat"],
+    tags=["Messages"],
 )
 
 
@@ -20,12 +20,7 @@ async def send_message(
     user: CurrentUser,
     session: SessionDep,
 ) -> SendMessageResponse:
-    """One chat turn: store the user message, get the LLM reply, return both.
-
-    An LLM failure still returns 200 — the assistant message comes back with
-    status "error" and the reason in `error`, and both rows are stored, so the
-    transcript stays intact.
-    """
+    """One chat turn: store the user message, get the LLM reply, return both."""
     try:
         conversation = await ConversationService(session).get(
             conversation_id, user.id, with_messages=True
@@ -33,11 +28,31 @@ async def send_message(
     except ConversationNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Conversation not found")
 
-    user_message, assistant_message = await ChatService(session).send_message(
-        conversation, payload.content
-    )
+    try:
+        user_message, assistant_message = await ChatService(session).send_message(
+            conversation, payload.content
+        )
+    except LLMCallFailed:
+        # The user message and a failed inference_logs row were still stored.
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            "The model provider request failed. Please try again.",
+        )
 
     return SendMessageResponse(
         user_message=MessageOut.model_validate(user_message),
         assistant_message=MessageOut.model_validate(assistant_message),
     )
+
+
+@chat_router.get("/{conversation_id}/messages", response_model=list[MessageOut])
+async def list_messages(
+    conversation_id: UUID, user: CurrentUser, session: SessionDep
+) -> list[MessageOut]:
+    """The conversation's transcript, oldest first."""
+    try:
+        messages = await ConversationService(session).list_messages(conversation_id, user.id)
+    except ConversationNotFound:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Conversation not found")
+
+    return [MessageOut.model_validate(message) for message in messages]
