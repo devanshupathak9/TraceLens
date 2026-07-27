@@ -1,20 +1,8 @@
 # Architecture
 
-```
- browser ──▶ chat-api ──▶ OpenAI / Anthropic
-                │                │
-                │          tracelens patch (in-process)
-                │                │  daemon thread, fire-and-forget
-                │                ▼
-                │        logging-service  POST /api/v1/logs
-                │                │  validate, publish
-                │                ▼
-                │            SQS queue ──▶ lambda ──┐
-                │                 │                 │
-                │                 └──▶ DLQ          │
-                │                                   ▼
-                └──────── GET /dashboard ◀──── Postgres
-```
+<p align="center">
+  <img src="architecture.png" alt="TraceLens Architecture" width="1000">
+</p>
 
 The chat path and the observability path share only the database. The chat-api
 writes `messages`; the Lambda writes `inference_logs`. Neither writes the
@@ -39,10 +27,9 @@ other's table, so a fault in the pipeline cannot corrupt or delay a chat turn.
 6. **Read.** `GET /dashboard` aggregates the rows — counts, latency, tokens,
    per-model breakdown, hourly throughput — and derives cost at read time.
 
-**Why a queue.** Ingestion returns as soon as the event is accepted, so the
-write rate is decoupled from the request rate: a burst waits in SQS instead of
-piling up on the app or the database. It also means the database can be down
-without ingestion failing — messages simply wait.
+**Why a queue.** Ingestion returns as soon as the event is accepted, so write
+rate is decoupled from request rate: a burst waits in SQS instead of piling onto
+the database, and the database can be down without ingestion failing.
 
 ## Logging strategy
 
@@ -59,7 +46,7 @@ without ingestion failing — messages simply wait.
   content never enters it.
 - **Streaming is reported explicitly.** `create(stream=True)` returns an
   iterator before any token exists, so there is nothing to time or count at call
-  time. The patch passes it through untouched and `providers.py` calls
+  time. The patch passes it through and `providers.py` calls
   `tracelens.record()` when the stream ends — which is also where token counts
   arrive (OpenAI needs `stream_options.include_usage`; Anthropic carries usage
   on the final message).
@@ -70,8 +57,9 @@ What the design assumes, stated plainly:
 
 - **Telemetry is lossy and that is acceptable.** Chat correctness outranks
   metric completeness at every decision point. Nothing retries on the SDK side.
-- **Delivery is at-least-once, never exactly-once.** Duplicate rows are
-  tolerable in aggregates; missing chat replies are not.
+- **Delivery is at-least-once, never exactly-once.** A batch where one record
+  fails is retried whole, so already-inserted records are inserted again.
+  Duplicates are tolerable in aggregates; an idempotency key would fix it.
 - **The ingestion endpoint is trusted** — it assumes a private network and
   authenticates nothing.
 - **The queue is the buffer of record.** Anything the Lambda can't process stays
@@ -80,7 +68,7 @@ What the design assumes, stated plainly:
 | What fails | What happens |
 |---|---|
 | Ingestion service down or unreachable | SDK thread swallows the error. Chat unaffected; that event is lost. |
-| `QUEUE_URL` unset or credentials wrong | Event is accepted, logged, dropped. Startup line says `NO QUEUE_URL SET`; failures print `[bus] publish FAILED`. |
+| `QUEUE_URL` unset or credentials wrong | Event is accepted, logged, dropped. Startup says `NO QUEUE_URL SET`; failures print `[bus] publish FAILED`. |
 | Lambda throws (bad row, DB down) | SQS redelivers. After `maxReceiveCount` the message moves to the **DLQ** instead of blocking the queue behind it. |
 | Database down | Lambda keeps failing, messages accumulate in the queue, nothing is lost until the retention window expires. |
 | LLM provider fails | User message is kept, a `failed` event ships, the endpoint returns 502. |
@@ -90,11 +78,6 @@ What the design assumes, stated plainly:
 collector looks exactly like a working one from the app's side. Diagnosis starts
 at the ingestion service's logs, which print every step — `[ingest]`,
 `[bus] publishing`, `[bus] queued MessageId=`.
-
-**At-least-once, not exactly-once.** SQS redelivers on failure, and a batch
-where one record fails is retried whole — so records already inserted from that
-batch are inserted again. Duplicates are acceptable for metrics; an idempotency
-key on the event would be the fix.
 
 ## Scaling considerations
 
@@ -106,39 +89,33 @@ key on the event would be the fix.
   which would pin a pooled connection for the whole reply.
 - **The queue is the shock absorber.** Ingestion is O(1) work per event;
   everything expensive happens in the Lambda, which AWS scales by queue depth.
-- **Behind a transaction pooler** (Supabase port 6543), set
-  `DB_TRANSACTION_POOLER=true` — it switches to `NullPool` and disables
-  asyncpg's prepared-statement cache, without which concurrency raises
-  `prepared statement "__asyncpg_stmt_N__" already exists`.
 - **The dashboard aggregates on read**, which is fine at this size and the wrong
   answer at scale: it would become a rollup table written by the Lambda, or a
   materialised view refreshed on a schedule.
 
 ## Tradeoffs made
 
-- **Managed platforms, not Kubernetes.** Deployed on Vercel + Railway + AWS
-  Lambda. k8s manifests were the one bonus item skipped — the pipeline is
-  container-based and would port over, but I hadn't used k8s before and chose to
-  spend the remaining time making the pipeline work end to end rather than
-  half-learning a deployment target.
+- **Managed platforms, not Kubernetes.** Vercel + Railway + AWS Lambda. k8s was
+  the one bonus item skipped — everything is containerised and would port over,
+  but I hadn't used k8s before and chose to spend the remaining time making the
+  pipeline work end to end rather than half-learning a deployment target.
 - **A managed queue instead of Kafka/Redis Streams.** SQS gave a DLQ, retries
-  and a Lambda trigger with no infrastructure to run. The cost is vendor lock-in
-  at that seam, and no replay of already-consumed events.
+  and a Lambda trigger with no infrastructure to run. The cost is lock-in at
+  that seam, and no replay of already-consumed events.
 - **The Lambda contract is untyped.** Its input is the JSON event body, so a
   field renamed in `logging-service/schemas.py` must be renamed in
   `lambda_function.py` too, and nothing checks that. A shared schema package
   would fix it; two files felt cheaper than a third package.
-- **No authentication on ingest.** Designed for a private network, where the
-  only caller is the backend. It is currently reachable publicly, which is the
-  first thing to close.
+- **No authentication on ingest.** Designed for a private network where the only
+  caller is the backend. It is currently reachable publicly, which is the first
+  thing to close.
 - **Cost as a lookup table.** `pricing.py` holds per-model rates checked by
   hand; an unlisted model reports "unpriced" rather than $0 so it can't quietly
-  read as free. Rates go stale without a reminder — Claude Sonnet 5 leaves
-  introductory pricing on 2026-09-01.
-- **Aggregates only on the dashboard.** It is deliberately deployment-wide with
-  no user or conversation ids, so usage can't be attributed to a person. A
+  read as free.
+- **Aggregates only on the dashboard.** Deliberately deployment-wide with no
+  user or conversation ids, so usage can't be attributed to a person. A
   per-conversation drill-down would need an authorisation model first.
-- **No tests.** The honest one. Everything here was verified by hand and by
-  running the pipeline end to end; the seams that most need pinning down — the
-  SDK patch, the event contract, the Lambda's SQL — are the ones with nothing
+- **No tests.** The honest one. Everything was verified by hand and by running
+  the pipeline end to end; the seams that most need pinning down — the SDK
+  patch, the event contract, the Lambda's SQL — are the ones with nothing
   guarding them.
