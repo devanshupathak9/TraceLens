@@ -24,6 +24,9 @@ build/
 .coverage
 htmlcov/
 
+# --- lambda build artifact -----------------------------------------------
+lambda/lambda.zip
+
 # --- editors / os --------------------------------------------------------
 .idea/
 .vscode/
