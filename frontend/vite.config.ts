@@ -14,6 +14,9 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Fail loudly instead of silently hopping to 5174 — the port is referenced
+    // in CORS_ORIGINS and the README, so a moved dev server breaks auth calls.
+    strictPort: true,
     proxy: {
       '/api': {
         target: process.env.VITE_PROXY_TARGET ?? 'http://localhost:8000',

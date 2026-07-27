@@ -1,16 +1,6 @@
-"""Persists inference events to Postgres.
-
-Shaped like an AWS Lambda handler so it can be deployed behind a queue later.
-For now there is no queue — the logging service imports this module and calls
-`lambda_handler` directly, one event per call. Each call opens its own DB
-connection, lambda-style.
-"""
-
 import os
-
 import psycopg2
 
-# Reuses the backend's DATABASE_URL; psycopg2 wants a plain postgresql:// scheme.
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
     "postgresql://postgres:postgres@localhost:5432/chatjippity",
@@ -18,11 +8,12 @@ DATABASE_URL = os.environ.get(
 
 
 def lambda_handler(event: dict, context=None) -> dict:
-    """Validate an inference event and insert it into inference_logs."""
+    print("Event received!!")
+    print(event)
     conversation_id = event.get("conversation_id")
     model = event.get("model")
     latency_ms = event.get("latency_ms")
-
+    print("conversation_id:", conversation_id)
     if conversation_id is None or model is None or latency_ms is None:
         return {"statusCode": 400, "body": "missing conversation_id, model or latency_ms"}
 
@@ -31,6 +22,7 @@ def lambda_handler(event: dict, context=None) -> dict:
 
     connection = psycopg2.connect(DATABASE_URL)
     try:
+        print("Connection creation!!")
         with connection, connection.cursor() as cursor:
             cursor.execute(
                 """

@@ -118,3 +118,24 @@ export const UserIcon = (props: IconProps) => (
     <path d="M4 21a8 8 0 0 1 16 0" />
   </Icon>
 )
+
+export const EyeIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z" />
+    <circle cx="12" cy="12" r="3" />
+  </Icon>
+)
+
+export const EyeOffIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M10.6 6.2A8.6 8.6 0 0 1 12 6c6.4 0 10 6 10 6a18 18 0 0 1-2.4 3.1M6.2 7.9A17.4 17.4 0 0 0 2 12s3.6 6 10 6a9 9 0 0 0 3.6-.7" />
+    <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M3 3l18 18" />
+  </Icon>
+)
+
+export const AlertIcon = (props: IconProps) => (
+  <Icon {...props} width={14} height={14}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 8v4M12 16h.01" />
+  </Icon>
+)

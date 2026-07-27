@@ -52,6 +52,24 @@ export function AuthScreen() {
         {error && <Banner message={error} onDismiss={clearError} />}
 
         <AuthForm mode={mode} />
+
+        <p className="auth-footnote">
+          {mode === 'login' ? (
+            <>
+              New here?{' '}
+              <button type="button" className="auth-link" onClick={() => switchMode('register')}>
+                Create an account
+              </button>
+            </>
+          ) : (
+            <>
+              Already have an account?{' '}
+              <button type="button" className="auth-link" onClick={() => switchMode('login')}>
+                Sign in
+              </button>
+            </>
+          )}
+        </p>
       </div>
     </div>
   )

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- The SparkIcon glyph from src/components/ui/Icons.tsx, scaled to a 32px
+       tile so the tab icon matches the in-app logo mark. -->
+  <rect width="32" height="32" rx="8" fill="#0e8f72" />
+  <path
+    d="M16 6l2.6 7.4L26 16l-7.4 2.6L16 26l-2.6-7.4L6 16l7.4-2.6L16 6Z"
+    fill="#ffffff"
+  />
+</svg>

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { Spinner } from '@/components/ui/Spinner'
+import { AlertIcon, EyeIcon, EyeOffIcon } from '@/components/ui/Icons'
 
 const MIN_PASSWORD_LENGTH = 8
 
@@ -15,6 +16,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [localError, setLocalError] = useState<string | null>(null)
+  const [revealed, setRevealed] = useState(false)
 
   const isRegister = mode === 'register'
 
@@ -81,22 +83,32 @@ export function AuthForm({ mode }: AuthFormProps) {
 
       <label className="field">
         <span className="field-label">Password</span>
-        <input
-          type="password"
-          name="password"
-          autoComplete={isRegister ? 'new-password' : 'current-password'}
-          placeholder={isRegister ? `At least ${MIN_PASSWORD_LENGTH} characters` : '••••••••'}
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          required
-        />
+        <span className="field-with-action">
+          <input
+            type={revealed ? 'text' : 'password'}
+            name="password"
+            autoComplete={isRegister ? 'new-password' : 'current-password'}
+            placeholder={isRegister ? `At least ${MIN_PASSWORD_LENGTH} characters` : '••••••••'}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+          />
+          <button
+            type="button"
+            className="field-action"
+            onClick={() => setRevealed((current) => !current)}
+            aria-label={revealed ? 'Hide password' : 'Show password'}
+          >
+            {revealed ? <EyeOffIcon width={16} height={16} /> : <EyeIcon width={16} height={16} />}
+          </button>
+        </span>
       </label>
 
       {isRegister && (
         <label className="field">
           <span className="field-label">Confirm password</span>
           <input
-            type="password"
+            type={revealed ? 'text' : 'password'}
             name="confirmPassword"
             autoComplete="new-password"
             placeholder="Re-enter your password"
@@ -107,7 +119,12 @@ export function AuthForm({ mode }: AuthFormProps) {
         </label>
       )}
 
-      {localError && <p className="field-error">{localError}</p>}
+      {localError && (
+        <p className="field-error">
+          <AlertIcon />
+          <span>{localError}</span>
+        </p>
+      )}
 
       <button type="submit" className="button button-primary button-block" disabled={pending}>
         {pending ? <Spinner size={16} /> : isRegister ? 'Create account' : 'Sign in'}
