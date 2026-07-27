@@ -28,14 +28,8 @@ def _store(event: dict) -> dict:
     latency_ms = event.get("latency_ms")
     prompt_tokens = int(event.get("prompt_tokens") or 0)
     completion_tokens = int(event.get("completion_tokens") or 0)
-    # Previews, already truncated + PII-redacted by the SDK. Columns are NOT NULL,
-    # so an event without them stores an empty string rather than failing.
     input_text = event.get("input_text") or ""
     output_text = event.get("output_text") or ""
-
-    # ISO-8601 UTC timestamp of the call itself, set by the SDK. Stored instead
-    # of the insert time so the dashboard's hourly buckets reflect when calls
-    # happened, not when the queue got around to them.
     created_at = event.get("created_at")
     print(f"created_at: {created_at}")
 
@@ -66,8 +60,6 @@ def _store(event: dict) -> dict:
                     event.get("status", "success"),
                     input_text,
                     output_text,
-                    # NULL falls back to now() in the COALESCE above, so an
-                    # event without a timestamp still stores a valid one.
                     created_at,
                 ),
             )
