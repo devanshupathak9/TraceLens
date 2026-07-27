@@ -1,0 +1,13 @@
+{
+  "service": "chatjippity-backend",
+  "conversation_id": 1,
+  "provider": "anthropic",
+  "model": "claude-haiku-4-5-20251001",
+  "input_text": "quick question",
+  "output_text": "quick answer",
+  "prompt_tokens": 12,
+  "completion_tokens": 8,
+  "total_tokens": 20,
+  "latency_ms": 410,
+  "status": "success"
+}

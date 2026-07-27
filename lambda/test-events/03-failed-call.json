@@ -1,0 +1,16 @@
+{
+  "Records": [
+    {
+      "messageId": "11110111-2222-3333-4444-555555555550",
+      "receiptHandle": "test-receipt-handle",
+      "body": "{\"service\": \"chatjippity-backend\", \"conversation_id\": 1, \"provider\": \"openai\", \"model\": \"gpt-4o\", \"input_text\": \"[REDACTED] please help\", \"output_text\": \"\", \"prompt_tokens\": 0, \"completion_tokens\": 0, \"total_tokens\": 0, \"latency_ms\": 233, \"status\": \"failed\", \"error\": \"RateLimitError: 429 Too Many Requests\", \"created_at\": \"2026-07-27T09:25:00Z\"}",
+      "attributes": {
+        "ApproximateReceiveCount": "1"
+      },
+      "messageAttributes": {},
+      "eventSource": "aws:sqs",
+      "eventSourceARN": "arn:aws:sqs:ap-south-1:123456789012:tracelens-events",
+      "awsRegion": "ap-south-1"
+    }
+  ]
+}
