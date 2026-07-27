@@ -17,6 +17,10 @@ chat down or break it.
 
 ## Architecture overview
 
+<p align="center">
+  <img src="architecture.png" alt="TraceLens Architecture" width="1000">
+</p>
+
 ```
  browser ──▶ chat-api ──▶ OpenAI / Anthropic
                 │               │
