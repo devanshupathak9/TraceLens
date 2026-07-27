@@ -28,6 +28,8 @@ def _store(event: dict) -> dict:
     latency_ms = event.get("latency_ms")
     prompt_tokens = int(event.get("prompt_tokens") or 0)
     completion_tokens = int(event.get("completion_tokens") or 0)
+    input_text = event.get("input_text")
+    output_text = event.get("output_text")
 
     if conversation_id is None or model is None or latency_ms is None:
         print("skipped: missing conversation_id, model or latency_ms")
