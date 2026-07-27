@@ -35,7 +35,10 @@ class Settings(BaseSettings):
     access_token_ttl_minutes: int = 60 * 24 * 7
 
     # --- llm --------------------------------------------------------------
+    # Provider is chosen from the model name (see providers.py): claude-* goes
+    # to Anthropic, everything else to OpenAI.
     openai_api_key: str | None = None
+    anthropic_api_key: str | None = None
     default_model: str = "gpt-4o"
     llm_request_timeout_seconds: float = 60.0
     max_context_messages: int = 10

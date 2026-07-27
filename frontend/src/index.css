@@ -32,6 +32,14 @@
   --accent-tint-strong: color-mix(in srgb, var(--accent) 18%, transparent);
   --accent-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
 
+  /* Chart series. Separate from --accent/--danger on purpose: these are a
+     validated pair (OKLCH lightness band, chroma floor, deutan/tritan
+     separation, contrast vs the chart surface), so restyling the UI accent
+     can't quietly break the chart's colourblind separation. Dark-mode steps
+     are chosen against the dark surface, not derived from these. */
+  --chart-ok: #0e8f72;
+  --chart-fail: #c2321f;
+
   --radius-sm: 7px;
   --radius: 11px;
   --radius-lg: 18px;
@@ -74,6 +82,10 @@
     --danger-soft: #3a1f1d;
     --user-bubble: #2b2e34;
 
+    /* Selected for the dark surface, not flipped from the light pair. */
+    --chart-ok: #1b9d7c;
+    --chart-fail: #e35146;
+
     /* Dark surfaces swallow soft shadows, so lean on opacity instead of blur. */
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.42);
@@ -102,6 +114,9 @@
   --danger: #f4776d;
   --danger-soft: #3a1f1d;
   --user-bubble: #2b2e34;
+
+  --chart-ok: #1b9d7c;
+  --chart-fail: #e35146;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.42);
@@ -1639,4 +1654,106 @@ ul {
   .jump-button:hover {
     transform: translateX(-50%);
   }
+}
+
+/* --- dashboard throughput chart ----------------------------------------- */
+
+/* A stacked bar per hour bucket: succeeded below, failed above. Built from divs
+   rather than a chart library — two series over 24 buckets doesn't justify the
+   dependency, and this inherits the theme tokens for free. */
+.chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 132px;
+  padding: 0 2px;
+  border-bottom: 1px solid var(--border);
+}
+
+.chart-col {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  /* 2px of surface between adjacent bars, per the mark spec. */
+  gap: 2px;
+  height: 100%;
+}
+
+/* Rounded data-ends only at the top of the stack; the base stays square so the
+   bar reads as anchored to the axis rather than floating above it. */
+.chart-seg {
+  width: 100%;
+  min-height: 2px;
+  border-radius: 0;
+}
+
+.chart-col > .chart-seg:first-child {
+  border-radius: 4px 4px 0 0;
+}
+
+.chart-seg-ok {
+  background: var(--chart-ok);
+}
+
+.chart-seg-fail {
+  background: var(--chart-fail);
+}
+
+/* Empty buckets still occupy a column, so the time axis stays even. */
+.chart-col-empty::after {
+  content: '';
+  display: block;
+  height: 2px;
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.chart-axis {
+  display: flex;
+  gap: 3px;
+  padding: 6px 2px 0;
+}
+
+.chart-axis span {
+  flex: 1 1 0;
+  min-width: 0;
+  font-size: 0.68rem;
+  color: var(--text-faint);
+  text-align: center;
+  /* Only every sixth label is rendered; the rest are spacers holding the grid
+     aligned, so labels can't collide at narrow widths. */
+  white-space: nowrap;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 0 0 10px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chart-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+}
+
+.chart-swatch-ok {
+  background: var(--chart-ok);
+}
+
+.chart-swatch-fail {
+  background: var(--chart-fail);
 }

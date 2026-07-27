@@ -1,8 +1,14 @@
+from datetime import datetime, timedelta, timezone
+
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import Conversation, InferenceLog, InferenceStatus
-from schemas import DashboardStats, ModelUsage
+from schemas import DashboardStats, ModelUsage, ThroughputPoint
+
+# Throughput window. Hourly buckets over a day is enough to see load shape
+# without paging a lot of rows into the response.
+THROUGHPUT_HOURS = 24
 
 
 class DashboardService:
@@ -42,6 +48,23 @@ class DashboardService:
         )
         model_rows = (await self.session.execute(models_stmt)).all()
 
+        # Throughput: count per hour bucket. date_trunc keeps the grouping in
+        # the database, and created_at is indexed, so this stays cheap.
+        since = datetime.now(timezone.utc) - timedelta(hours=THROUGHPUT_HOURS)
+        bucket = func.date_trunc("hour", InferenceLog.created_at).label("bucket")
+        throughput_stmt = (
+            select(
+                bucket,
+                func.count(InferenceLog.id),
+                func.sum(case((InferenceLog.status == InferenceStatus.FAILED, 1), else_=0)),
+            )
+            .join(Conversation, InferenceLog.conversation_id == Conversation.id)
+            .where(Conversation.user_id == user_id, InferenceLog.created_at >= since)
+            .group_by(bucket)
+            .order_by(bucket)
+        )
+        throughput_rows = (await self.session.execute(throughput_stmt)).all()
+
         return DashboardStats(
             total_calls=total or 0,
             success_calls=success or 0,
@@ -59,5 +82,9 @@ class DashboardService:
                     completion_tokens=c or 0,
                 )
                 for model, calls, latency, p, c in model_rows
+            ],
+            throughput=[
+                ThroughputPoint(bucket=b, calls=calls, failed=failed or 0)
+                for b, calls, failed in throughput_rows
             ],
         )

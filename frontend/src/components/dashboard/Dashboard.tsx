@@ -3,7 +3,7 @@ import { getDashboardStats } from '@/api/dashboard'
 import { Banner } from '@/components/ui/Banner'
 import { Spinner } from '@/components/ui/Spinner'
 import { MenuIcon } from '@/components/ui/Icons'
-import type { DashboardStats } from '@/types'
+import type { DashboardStats, ThroughputPoint } from '@/types'
 
 interface DashboardProps {
   onOpenSidebar: () => void
@@ -61,6 +61,11 @@ export function Dashboard({ onOpenSidebar }: DashboardProps) {
               <StatTile label="Failed" value={numberFormat.format(stats.failed_calls)} />
             </section>
 
+            <section aria-label="Throughput">
+              <h2 className="dashboard-section-title">Calls per hour (last 24h)</h2>
+              <Throughput points={stats.throughput} />
+            </section>
+
             <section aria-label="Usage by model">
               <h2 className="dashboard-section-title">By model</h2>
               {stats.models.length === 0 ? (
@@ -98,6 +103,105 @@ export function Dashboard({ onOpenSidebar }: DashboardProps) {
         </div>
       )}
     </main>
+  )
+}
+
+const HOURS = 24
+const hourLabel = new Intl.DateTimeFormat(undefined, { hour: 'numeric' })
+const hourTitle = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+
+/**
+ * Hourly call volume, succeeded and failed stacked per bucket.
+ *
+ * The server returns only buckets that had calls, so the 24 slots are filled in
+ * here — a gap has to read as "no traffic", not as a narrower chart.
+ */
+function Throughput({ points }: { points: ThroughputPoint[] }) {
+  const byHour = new Map<number, ThroughputPoint>()
+  for (const point of points) byHour.set(new Date(point.bucket).setMinutes(0, 0, 0), point)
+
+  const now = new Date().setMinutes(0, 0, 0)
+  const buckets = Array.from({ length: HOURS }, (_, index) => {
+    const at = now - (HOURS - 1 - index) * 3_600_000
+    const point = byHour.get(at)
+    return { at, calls: point?.calls ?? 0, failed: point?.failed ?? 0 }
+  })
+
+  const peak = Math.max(1, ...buckets.map((bucket) => bucket.calls))
+
+  if (points.length === 0) {
+    return <p className="dashboard-empty">No calls in the last 24 hours.</p>
+  }
+
+  return (
+    <>
+      {/* Legend, not colour alone: two series always carry a key. */}
+      <p className="chart-legend">
+        <span className="chart-legend-item">
+          <span className="chart-swatch chart-swatch-ok" aria-hidden="true" />
+          Succeeded
+        </span>
+        <span className="chart-legend-item">
+          <span className="chart-swatch chart-swatch-fail" aria-hidden="true" />
+          Failed
+        </span>
+      </p>
+
+      <div className="chart" role="img" aria-label={`Calls per hour over the last ${HOURS} hours`}>
+        {buckets.map((bucket) => {
+          const failedHeight = (bucket.failed / peak) * 100
+          const okHeight = ((bucket.calls - bucket.failed) / peak) * 100
+          return (
+            <div
+              key={bucket.at}
+              className={bucket.calls === 0 ? 'chart-col chart-col-empty' : 'chart-col'}
+              title={`${hourTitle.format(bucket.at)} — ${bucket.calls} call${
+                bucket.calls === 1 ? '' : 's'
+              }, ${bucket.failed} failed`}
+            >
+              {bucket.failed > 0 && (
+                <div className="chart-seg chart-seg-fail" style={{ height: `${failedHeight}%` }} />
+              )}
+              {bucket.calls - bucket.failed > 0 && (
+                <div className="chart-seg chart-seg-ok" style={{ height: `${okHeight}%` }} />
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Every sixth hour is labelled; the rest are spacers keeping the columns
+          aligned, so labels can't collide on a narrow screen. */}
+      <div className="chart-axis" aria-hidden="true">
+        {buckets.map((bucket, index) => (
+          <span key={bucket.at}>{index % 6 === 0 ? hourLabel.format(bucket.at) : ''}</span>
+        ))}
+      </div>
+
+      {/* The bars are colour and geometry; this is the same data as text, so the
+          chart isn't the only way to read it. */}
+      <table className="sr-only">
+        <caption>Calls per hour, last {HOURS} hours</caption>
+        <thead>
+          <tr>
+            <th scope="col">Hour</th>
+            <th scope="col">Calls</th>
+            <th scope="col">Failed</th>
+          </tr>
+        </thead>
+        <tbody>
+          {buckets
+            .filter((bucket) => bucket.calls > 0)
+            .map((bucket) => (
+              <tr key={bucket.at}>
+                <th scope="row">{hourTitle.format(bucket.at)}</th>
+                <td>{bucket.calls}</td>
+                <td>{bucket.failed}</td>
+              </tr>
+            ))}
+        </tbody>
+      </table>
+    </>
   )
 }
 

@@ -49,6 +49,13 @@ export interface ModelUsage {
   completion_tokens: number
 }
 
+export interface ThroughputPoint {
+  /** Start of the hour bucket, ISO 8601. */
+  bucket: string
+  calls: number
+  failed: number
+}
+
 export interface DashboardStats {
   total_calls: number
   success_calls: number
@@ -58,4 +65,5 @@ export interface DashboardStats {
   total_completion_tokens: number
   total_tokens: number
   models: ModelUsage[]
+  throughput: ThroughputPoint[]
 }

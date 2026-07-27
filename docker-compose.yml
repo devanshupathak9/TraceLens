@@ -7,8 +7,9 @@
 # Chat API:   http://localhost:8000/docs
 # Logging:    http://localhost:8001/health
 #
-# OPENAI_API_KEY is read from the shell or a .env file next to this compose
-# file. Without it the backend answers in echo mode (and ships no events).
+# OPENAI_API_KEY / ANTHROPIC_API_KEY are read from the shell or a .env file next
+# to this compose file. Without a key for the configured model's provider, the
+# backend answers in echo mode (and ships no events).
 
 services:
   db:
@@ -46,6 +47,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/chatjippity
       TRACELENS_INGEST_URL: http://logging-service:8001
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       JWT_SECRET: ${JWT_SECRET:-dev-only-compose-secret-change-in-production}
     ports:
       - "8000:8000"

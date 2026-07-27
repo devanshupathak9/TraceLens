@@ -217,7 +217,18 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setStreaming(true)
 
       try {
-        const result = await chatApi.sendMessage(conversationId, trimmed, controller.signal)
+        // Accumulated in a local rather than state: two deltas can land in the
+        // same tick, and reading back from state would drop one.
+        let streamed = ''
+        const result = await chatApi.streamMessage(
+          conversationId,
+          trimmed,
+          (delta) => {
+            streamed += delta
+            patchMessage(placeholderId, { content: streamed })
+          },
+          controller.signal,
+        )
         // Swap both optimistic messages for the server's stored versions.
         setMessages((current) =>
           current.map((message) => {
@@ -228,9 +239,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         )
       } catch (cause) {
         if (isAbort(cause)) {
-          // Cancelled client-side. The server may still finish and store the
-          // turn — reopening the conversation shows whatever it kept.
-          setMessages((current) => current.filter((message) => message.id !== placeholderId))
+          // Disconnecting cancels the backend's provider call, so no reply is
+          // stored. Keep whatever streamed so the user doesn't watch text
+          // vanish; drop the bubble entirely if nothing arrived yet.
+          setMessages((current) =>
+            current.flatMap((message) => {
+              if (message.id !== placeholderId) return [message]
+              if (!message.content) return []
+              return [{ ...message, status: 'cancelled' as const }]
+            }),
+          )
         } else {
           const message = cause instanceof Error ? cause.message : 'The request failed.'
           patchMessage(placeholderId, { status: 'error', error: message })

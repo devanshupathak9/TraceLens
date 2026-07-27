@@ -95,13 +95,42 @@ Summary shape: `{id, title, model, created_at, last_active_at, message_count}`.
 | Method | Path | Body | Returns |
 |---|---|---|---|
 | POST | `/conversations/{id}/messages` | `{content}` | `{user_message, assistant_message}` |
+| POST | `/conversations/{id}/messages/stream` | `{content}` | SSE: `delta`* → `done` |
 | GET | `/conversations/{id}/messages` | — | transcript, oldest first |
+
+The stream endpoint is what the UI uses. Frames are `event: delta` with
+`{text}` per token, one `event: done` with the stored `{user_message,
+assistant_message}`, or `event: error` with `{detail}`. It does **not** take the
+request-scoped session: a `StreamingResponse` body runs after the handler
+returns, so that session and its pooled connection would be pinned for the whole
+generation — it opens its own via `session_scope()` instead.
 
 Message shape: `{id, conversation_id, role, content, created_at}`.
 
 One POST is one chat turn: the user message is stored, the LLM is called with
 the system prompt plus the last `MAX_CONTEXT_MESSAGES` turns, the reply is
-stored, and both come back. Non-streaming for now — SSE streaming is planned.
+stored, and both come back.
+
+If the client disconnects mid-turn (the UI's stop button), the backend cancels
+the provider call and stores no reply, so a cancelled answer can't reappear on
+the next load. On the streaming endpoint the disconnect propagates as a
+`CancelledError` into the generator; on the plain endpoint a watcher polls
+`request.is_disconnected()` and races it against the provider call.
+
+Streamed calls are the one case the tracelens auto-patch can't measure —
+`create(stream=True)` returns an iterator before any token exists — so the
+provider reports them explicitly with `tracelens.record()` once the stream ends,
+which is also where the token counts arrive (OpenAI needs
+`stream_options.include_usage`; Anthropic carries them on the final message).
+
+### Providers
+
+`providers.py` holds one strategy class per vendor behind a common
+`complete(model, messages)` interface, and `provider_for(model)` picks between
+them by model name: `claude-*` → Anthropic, everything else → OpenAI. The chat
+service never names a vendor, so adding a provider is one class plus one line in
+the registry. A model whose provider has no API key configured falls back to the
+echo reply, which is how the app stays testable with no key and no spend.
 
 The backend does not write `inference_logs` itself: the tracelens SDK wraps the
 LLM call and ships the event (latency, tokens, text, conversation_id) to the

@@ -75,6 +75,15 @@ class ModelUsage(BaseModel):
     completion_tokens: int
 
 
+class ThroughputPoint(BaseModel):
+    """Calls in one time bucket — throughput is derived from inference_logs,
+    never stored as a running counter."""
+
+    bucket: datetime
+    calls: int
+    failed: int
+
+
 class DashboardStats(BaseModel):
     total_calls: int
     success_calls: int
@@ -84,6 +93,7 @@ class DashboardStats(BaseModel):
     total_completion_tokens: int
     total_tokens: int
     models: list[ModelUsage]
+    throughput: list[ThroughputPoint] = []
 
 
 class MessageCreate(BaseModel):
