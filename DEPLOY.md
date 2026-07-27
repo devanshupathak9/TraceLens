@@ -5,7 +5,7 @@ Target setup: **Vercel** (frontend) + **Render** (chat-api + logging-service, Do
 
 ```
 Vercel (frontend) ─rewrite /api/*→ Render chat-api ─SDK event→ Render logging-service
-                                                                     │ SQS_QUEUE_URL set
+                                                                     │ QUEUE_URL set
                                                                      ▼
                                                               AWS SQS queue
                                                                      │ trigger
@@ -93,12 +93,12 @@ New → Web Service → this repo:
 New → Web Service → this repo:
 - Dockerfile path: `logging-service/Dockerfile`
 - Env vars:
-  - `SQS_QUEUE_URL` = queue URL from step 1
+  - `QUEUE_URL` = queue URL from step 1
   - `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` = the publisher key
   - `AWS_DEFAULT_REGION` = queue's region, e.g. `ap-south-1`
   - `PORT` = `8001`
 
-(No `DATABASE_URL` needed here — with `SQS_QUEUE_URL` set it never touches the
+(No `DATABASE_URL` needed here — with `QUEUE_URL` set it never touches the
 DB; the Lambda does the writing.)
 
 Deploy logging-service first, then paste its URL into chat-api's

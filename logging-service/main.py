@@ -2,13 +2,20 @@ import logging
 
 from fastapi import FastAPI
 
-from bus import publish_event
+from bus import describe_mode, publish_event
 from schemas import InferenceEvent, IngestResponse
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-8s %(message)s")
 logger = logging.getLogger("tracelens")
 
 app = FastAPI(title="TraceLens Logging Service", version="0.1.0")
+
+
+@app.on_event("startup")
+async def log_mode() -> None:
+    # Without this, "why didn't my event reach SQS?" means reading env vars by
+    # hand — a missing queue URL silently falls back to the direct write.
+    logger.info("event sink: %s", describe_mode())
 
 
 @app.get("/health")
