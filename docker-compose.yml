@@ -1,5 +1,5 @@
 # The full TraceLens stack: postgres + migrations + chat backend +
-# logging service (with the embedded lambda) + frontend.
+# logging service + frontend.
 #
 #   docker compose up --build
 #
@@ -10,6 +10,10 @@
 # OPENAI_API_KEY / ANTHROPIC_API_KEY are read from the shell or a .env file next
 # to this compose file. Without a key for the configured model's provider, the
 # backend answers in echo mode (and ships no events).
+#
+# QUEUE_URL + AWS credentials come from the same place. The logging service
+# publishes to SQS and the row is written by the AWS Lambda, so with no queue
+# configured the local database gets no inference_logs rows.
 
 services:
   db:
@@ -59,16 +63,17 @@ services:
 
   logging-service:
     build:
-      context: .
-      dockerfile: logging-service/Dockerfile
+      context: logging-service
     environment:
-      # The lambda strips +asyncpg itself, so the same URL shape works here.
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/chatjippity
+      # Every event goes to SQS; the Lambda subscribed to the queue writes the
+      # inference_logs row. Without these the service still accepts events and
+      # logs them, but drops them instead of publishing.
+      QUEUE_URL: ${QUEUE_URL:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-}
     ports:
       - "8001:8001"
-    depends_on:
-      db:
-        condition: service_healthy
 
   frontend:
     build:

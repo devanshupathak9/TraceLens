@@ -33,6 +33,12 @@ def _store(event: dict) -> dict:
     input_text = event.get("input_text") or ""
     output_text = event.get("output_text") or ""
 
+    # ISO-8601 UTC timestamp of the call itself, set by the SDK. Stored instead
+    # of the insert time so the dashboard's hourly buckets reflect when calls
+    # happened, not when the queue got around to them.
+    created_at = event.get("created_at")
+    print(f"created_at: {created_at}")
+
     if conversation_id is None or model is None or latency_ms is None:
         print("skipped: missing conversation_id, model or latency_ms")
         return {"statusCode": 400, "body": "missing conversation_id, model or latency_ms"}
@@ -45,8 +51,9 @@ def _store(event: dict) -> dict:
                 INSERT INTO inference_logs
                     (conversation_id, provider, model, prompt_tokens,
                      completion_tokens, total_tokens, latency_ms, status,
-                     input_text, output_text)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                     input_text, output_text, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        COALESCE(%s::timestamptz, now()))
                 """,
                 (
                     int(conversation_id),
@@ -59,6 +66,9 @@ def _store(event: dict) -> dict:
                     event.get("status", "success"),
                     input_text,
                     output_text,
+                    # NULL falls back to now() in the COALESCE above, so an
+                    # event without a timestamp still stores a valid one.
+                    created_at,
                 ),
             )
     finally:

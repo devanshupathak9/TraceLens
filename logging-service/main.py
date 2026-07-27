@@ -1,4 +1,6 @@
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
@@ -8,14 +10,16 @@ from schemas import InferenceEvent, IngestResponse
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-8s %(message)s")
 logger = logging.getLogger("tracelens")
 
-app = FastAPI(title="TraceLens Logging Service", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    # Printed at boot so "why didn't my event reach SQS?" doesn't start with
+    # reading env vars by hand.
+    print(f"[startup] event sink: {describe_mode()}", flush=True)
+    yield
 
 
-@app.on_event("startup")
-async def log_mode() -> None:
-    # Without this, "why didn't my event reach SQS?" means reading env vars by
-    # hand — a missing queue URL silently falls back to the direct write.
-    logger.info("event sink: %s", describe_mode())
+app = FastAPI(title="TraceLens Logging Service", version="0.1.0", lifespan=lifespan)
 
 
 @app.get("/health")
@@ -24,24 +28,21 @@ async def health() -> dict[str, str]:
 
 
 # Sync handler on purpose: FastAPI runs it in a threadpool, so the blocking
-# DB write in the lambda can't stall the event loop.
+# boto3 send_message can't stall the event loop.
 @app.post("/api/v1/logs", response_model=IngestResponse)
 def ingest(event: InferenceEvent) -> IngestResponse:
-    logger.info(
-        "[%s] %s/%s status=%s latency=%dms tokens=%d/%d/%d input=%r output=%r",
-        event.service,
-        event.provider,
-        event.model,
-        event.status,
-        event.latency_ms,
-        event.prompt_tokens,
-        event.completion_tokens,
-        event.total_tokens,
-        event.input_text[:200],
-        event.output_text[:200],
+    print(
+        f"[ingest] {event.service} {event.provider}/{event.model} "
+        f"conversation={event.conversation_id} status={event.status} "
+        f"latency={event.latency_ms}ms "
+        f"tokens={event.prompt_tokens}/{event.completion_tokens}/{event.total_tokens} "
+        f"created_at={event.created_at.isoformat()}",
+        flush=True,
     )
+    print(f"[ingest] input={event.input_text[:200]!r}", flush=True)
+    print(f"[ingest] output={event.output_text[:200]!r}", flush=True)
     if event.error:
-        logger.info("[%s] error: %s", event.service, event.error)
+        print(f"[ingest] error: {event.error}", flush=True)
 
     publish_event(event)
     return IngestResponse(received=1)

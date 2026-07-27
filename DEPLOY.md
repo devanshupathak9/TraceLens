@@ -91,15 +91,16 @@ New → Web Service → this repo:
 
 ### logging-service
 New → Web Service → this repo:
-- Dockerfile path: `logging-service/Dockerfile`
+- Root Directory: `logging-service` (its Dockerfile is self-contained)
 - Env vars:
-  - `QUEUE_URL` = queue URL from step 1
+  - `QUEUE_URL` = queue URL from step 1 — **required**; without it every event
+    is dropped after being logged
   - `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` = the publisher key
   - `AWS_DEFAULT_REGION` = queue's region, e.g. `ap-south-1`
   - `PORT` = `8001`
 
-(No `DATABASE_URL` needed here — with `QUEUE_URL` set it never touches the
-DB; the Lambda does the writing.)
+(No `DATABASE_URL` here — this service never touches the DB; the Lambda does
+all the writing.)
 
 Deploy logging-service first, then paste its URL into chat-api's
 `TRACELENS_INGEST_URL`.

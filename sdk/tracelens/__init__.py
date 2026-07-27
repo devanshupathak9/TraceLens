@@ -96,6 +96,9 @@ def record(
         "total_tokens": prompt + completion,
         "latency_ms": latency_ms,
         "status": status,
+        # Always UTC and timezone-aware: this is the call's own timestamp and it
+        # is what ends up in inference_logs.created_at, so a naive value here
+        # would be read back in whatever timezone the database assumes.
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     if error is not None:

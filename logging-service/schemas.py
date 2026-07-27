@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -19,7 +19,11 @@ class InferenceEvent(BaseModel):
     latency_ms: int
     status: Literal["success", "failed"] = "success"
     error: str | None = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    # When the call happened, as stamped by the SDK; forwarded to the queue and
+    # stored as inference_logs.created_at. Timezone-aware on purpose — the old
+    # datetime.utcnow default was naive, so a client that omitted the field got
+    # a timestamp Postgres then read as local time in a TIMESTAMPTZ column.
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class IngestResponse(BaseModel):

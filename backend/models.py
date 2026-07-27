@@ -87,6 +87,9 @@ class InferenceLog(Base):
     latency_ms: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[InferenceStatus] = mapped_column(_STATUS_ENUM, nullable=False)
 
+    # When the LLM call happened, stamped by the SDK and carried through the
+    # queue — NOT when the row was inserted, which lags by the queue delay. The
+    # server default is only the fallback for an event that arrives without one.
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
 
     conversation: Mapped["Conversation"] = relationship(back_populates="inference_logs")

@@ -1,6 +1,7 @@
-# Built with the REPO ROOT as context (see docker-compose.yml), because bus.py
-# imports ../lambda:
-#   docker build -f logging-service/Dockerfile .
+# Self-contained: this directory is the build context.
+#   docker build -t tracelens-logging logging-service/
+# (It no longer needs the repo root — bus.py publishes to SQS and no longer
+# imports the lambda source.)
 
 FROM python:3.13-slim
 
@@ -17,13 +18,10 @@ RUN useradd --create-home --uid 1000 appuser
 WORKDIR /app
 
 # Copied first so the dependency layer caches independently of source changes.
-COPY logging-service/requirements.txt .
+COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-# bus.py resolves the lambda folder as ../lambda relative to itself (/app),
-# so it lands at /lambda.
-COPY --chown=appuser:appuser lambda /lambda
-COPY --chown=appuser:appuser logging-service/ .
+COPY --chown=appuser:appuser . .
 
 USER appuser
 
