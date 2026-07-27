@@ -1,6 +1,5 @@
 import json
 import os
-
 import psycopg2
 
 DATABASE_URL = os.environ.get(
@@ -10,8 +9,6 @@ DATABASE_URL = os.environ.get(
 
 
 def lambda_handler(event: dict, context=None) -> dict:
-    # SQS invokes with {"Records": [{"body": "<json event>"}]}; the logging
-    # service calls with the event dict directly.
     records = event.get("Records")
     if records is None:
         return _store(event)
@@ -21,16 +18,20 @@ def lambda_handler(event: dict, context=None) -> dict:
 
 
 def _store(event: dict) -> dict:
-    print("event:", event)
+    print("Event received:", event)
+
     conversation_id = event.get("conversation_id")
+    print(f"conversation_id: {conversation_id}")
+
     model = event.get("model")
+    provider = event.get("provider")
     latency_ms = event.get("latency_ms")
+    prompt_tokens = int(event.get("prompt_tokens") or 0)
+    completion_tokens = int(event.get("completion_tokens") or 0)
+
     if conversation_id is None or model is None or latency_ms is None:
         print("skipped: missing conversation_id, model or latency_ms")
         return {"statusCode": 400, "body": "missing conversation_id, model or latency_ms"}
-
-    prompt_tokens = int(event.get("prompt_tokens") or 0)
-    completion_tokens = int(event.get("completion_tokens") or 0)
 
     connection = psycopg2.connect(DATABASE_URL)
     try:
