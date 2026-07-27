@@ -23,6 +23,9 @@ USER appuser
 EXPOSE 8001
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -fsS http://localhost:8001/health || exit 1
+    CMD curl -fsS http://localhost:${PORT:-8001}/health || exit 1
 
-CMD ["uvicorn", "main:app", "--host", "::", "--port", "8001"]
+# Honour $PORT when the platform injects one (Railway's public proxy forwards
+# there), falling back to 8001 for compose and local runs. exec so uvicorn
+# replaces the shell and still receives SIGTERM on shutdown.
+CMD ["sh", "-c", "exec uvicorn main:app --host :: --port ${PORT:-8001}"]
