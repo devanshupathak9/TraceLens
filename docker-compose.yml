@@ -63,7 +63,8 @@ services:
 
   logging-service:
     build:
-      context: logging-service
+      context: .
+      dockerfile: logging-service/Dockerfile
     environment:
       # Every event goes to SQS; the Lambda subscribed to the queue writes the
       # inference_logs row. Without these the service still accepts events and

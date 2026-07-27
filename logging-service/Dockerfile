@@ -1,31 +1,31 @@
+# Build from the REPO ROOT, exactly like backend/Dockerfile — on Railway/Render
+# set only the Dockerfile path (logging-service/Dockerfile) and leave the root
+# directory empty:
+#   docker build -f logging-service/Dockerfile .
+
 FROM python:3.13-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN useradd --create-home --uid 1000 appuser
-
 WORKDIR /app
 
 # Copied first so the dependency layer caches independently of source changes.
-COPY requirements.txt .
+COPY logging-service/requirements.txt .
 RUN pip install -r requirements.txt
 
-COPY --chown=appuser:appuser . .
-
-USER appuser
+COPY logging-service/ .
 
 EXPOSE 8001
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -fsS http://localhost:${PORT:-8001}/health || exit 1
-
-# Honour $PORT when the platform injects one (Railway's public proxy forwards
-# there), falling back to 8001 for compose and local runs. exec so uvicorn
-# replaces the shell and still receives SIGTERM on shutdown.
-CMD ["sh", "-c", "exec uvicorn main:app --host :: --port ${PORT:-8001}"]
+# Listen on the port the platform injects; 8001 for compose and local runs.
+#
+# 0.0.0.0, not ::. The IPv6 bind was for Railway's private network, but uvicorn
+# opens it v6-only: 127.0.0.1 is refused, so the public proxy and Docker port
+# publishing both fail against it. This service is reached over its public URL,
+# which is IPv4, so bind IPv4. (Going back to private networking means :: — and
+# then only IPv6 callers work.)
+#
+# exec keeps uvicorn in PID 1's place so it still receives SIGTERM on shutdown.
+CMD ["sh", "-c", "exec uvicorn main:app --host 0.0.0.0 --port ${PORT:-8001}"]
