@@ -13,8 +13,6 @@ logger = logging.getLogger("tracelens")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    # Printed at boot so "why didn't my event reach SQS?" doesn't start with
-    # reading env vars by hand.
     print(f"[startup] event sink: {describe_mode()}", flush=True)
     yield
 
@@ -27,8 +25,6 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-# Sync handler on purpose: FastAPI runs it in a threadpool, so the blocking
-# boto3 send_message can't stall the event loop.
 @app.post("/api/v1/logs", response_model=IngestResponse)
 def ingest(event: InferenceEvent) -> IngestResponse:
     print(

@@ -1,13 +1,3 @@
-"""Event publishing.
-
-SQS is the only sink: every ingested event is forwarded to the queue, and the
-AWS Lambda subscribed to it does the database write. This service never touches
-Postgres itself.
-
-Publishing failures are logged and swallowed — the SDK already got its 200, and
-observability must never break the app being observed.
-"""
-
 import json
 import logging
 import os
