@@ -79,6 +79,11 @@ class InferenceLog(Base):
     completion_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     total_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
+    # Truncated, PII-redacted previews of the call — not the full transcript,
+    # which lives in messages. Written by the lambda, never by the backend.
+    input_text: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    output_text: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+
     latency_ms: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[InferenceStatus] = mapped_column(_STATUS_ENUM, nullable=False)
 

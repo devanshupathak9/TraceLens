@@ -205,7 +205,13 @@ in order and building the LLM context window.
 | total_tokens | INT | NOT NULL, CHECK `= prompt_tokens + completion_tokens` |
 | latency_ms | INT | NOT NULL |
 | status | VARCHAR(16) | NOT NULL, CHECK: `success` / `failed` |
+| input_text / output_text | TEXT | NOT NULL, default `''` |
 | created_at | TIMESTAMPTZ | NOT NULL, indexed |
+
+`input_text` / `output_text` are **previews, not the transcript** — the SDK
+truncates to 200 chars and redacts emails, card numbers and phone numbers before
+shipping. They exist so a slow or failed call can be debugged from the log row
+alone, without joining back to `messages` (which a failed call never wrote).
 
 ### Design decisions
 
