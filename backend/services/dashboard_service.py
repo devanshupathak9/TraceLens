@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import Conversation, InferenceLog, InferenceStatus
+from models import InferenceLog, InferenceStatus
 from pricing import cost_for
 from schemas import DashboardStats, ModelUsage, ThroughputPoint
 
@@ -13,22 +13,28 @@ THROUGHPUT_HOURS = 24
 
 
 class DashboardService:
+    """Deployment-wide inference stats.
+
+    Deliberately NOT scoped to the caller: this is the operator's view of the
+    whole app, so every signed-in user sees the same totals. That's the one
+    place in the API where data isn't partitioned by user, and it is why the
+    endpoint returns aggregates only — never message text, and never a
+    conversation or user id that would attribute usage to a person.
+    """
+
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def stats_for_user(self, user_id: int) -> DashboardStats:
-        # Logs belong to the user through their conversations.
-        totals_stmt = (
-            select(
-                func.count(InferenceLog.id),
-                func.sum(case((InferenceLog.status == InferenceStatus.SUCCESS, 1), else_=0)),
-                func.avg(InferenceLog.latency_ms),
-                func.sum(InferenceLog.prompt_tokens),
-                func.sum(InferenceLog.completion_tokens),
-                func.sum(InferenceLog.total_tokens),
-            )
-            .join(Conversation, InferenceLog.conversation_id == Conversation.id)
-            .where(Conversation.user_id == user_id)
+    async def stats(self) -> DashboardStats:
+        # No join to conversations: without the ownership filter there is
+        # nothing to join for, and inference_logs alone answers every query.
+        totals_stmt = select(
+            func.count(InferenceLog.id),
+            func.sum(case((InferenceLog.status == InferenceStatus.SUCCESS, 1), else_=0)),
+            func.avg(InferenceLog.latency_ms),
+            func.sum(InferenceLog.prompt_tokens),
+            func.sum(InferenceLog.completion_tokens),
+            func.sum(InferenceLog.total_tokens),
         )
         total, success, avg_latency, prompt, completion, total_tokens = (
             (await self.session.execute(totals_stmt)).one()
@@ -42,8 +48,6 @@ class DashboardService:
                 func.sum(InferenceLog.prompt_tokens),
                 func.sum(InferenceLog.completion_tokens),
             )
-            .join(Conversation, InferenceLog.conversation_id == Conversation.id)
-            .where(Conversation.user_id == user_id)
             .group_by(InferenceLog.model)
             .order_by(func.count(InferenceLog.id).desc())
         )
@@ -59,8 +63,7 @@ class DashboardService:
                 func.count(InferenceLog.id),
                 func.sum(case((InferenceLog.status == InferenceStatus.FAILED, 1), else_=0)),
             )
-            .join(Conversation, InferenceLog.conversation_id == Conversation.id)
-            .where(Conversation.user_id == user_id, InferenceLog.created_at >= since)
+            .where(InferenceLog.created_at >= since)
             .group_by(bucket)
             .order_by(bucket)
         )

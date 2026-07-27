@@ -143,13 +143,18 @@ event, and the endpoint returns 502.
 
 | Method | Path | Returns |
 |---|---|---|
-| GET | `/dashboard` | inference stats for the signed-in user |
+| GET | `/dashboard` | inference stats across the whole deployment |
 
 Shape: `{total_calls, success_calls, failed_calls, avg_latency_ms,
 total_prompt_tokens, total_completion_tokens, total_tokens, total_cost_usd,
 unpriced_models[], models[], throughput[]}` where each `models[]` row is
 `{model, calls, avg_latency_ms, prompt_tokens, completion_tokens, cost_usd}`.
-Aggregated from `inference_logs`, scoped to the user's conversations.
+Aggregated from `inference_logs` across **every** conversation, not just the
+caller's — this is the operator's view of the app, so two users see identical
+numbers. It is the one endpoint that isn't partitioned by user, which is why it
+returns aggregates only: no message text, and no conversation or user id that
+would attribute usage to a person. It still requires a bearer token; app-wide
+is not the same as public.
 
 **Cost is computed at read time from `pricing.py`, never stored.** Prices
 change, so a cost written at ingest would freeze that day's rate; the log rows

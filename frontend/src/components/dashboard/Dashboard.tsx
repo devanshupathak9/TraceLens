@@ -73,6 +73,12 @@ export function Dashboard({ onOpenSidebar }: DashboardProps) {
       {stats && (
         <div className="dashboard-scroll">
           <div className="dashboard">
+            {/* Says whose numbers these are: without it the totals read as
+                personal usage, which they aren't. */}
+            <p className="dashboard-subtitle">
+              Every LLM call across this deployment — all users, not just yours.
+            </p>
+
             <section className="stat-grid" aria-label="Inference totals">
               {/* The headline for an observability view: everything else is
                   volume, this is health. Shows a dash rather than 0% or NaN
@@ -105,7 +111,7 @@ export function Dashboard({ onOpenSidebar }: DashboardProps) {
               <h2 className="dashboard-section-title">By model</h2>
               {stats.models.length === 0 ? (
                 <p className="dashboard-empty">
-                  No LLM calls recorded yet — send a chat message and refresh.
+                  No LLM calls recorded yet by anyone — send a chat message and refresh.
                 </p>
               ) : (
                 <div className="dashboard-table-wrap">

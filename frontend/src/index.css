@@ -1616,6 +1616,12 @@ ul {
   font-weight: 550;
 }
 
+.dashboard-subtitle {
+  margin: -6px 0 -8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
 .dashboard-note {
   margin: 8px 2px 0;
   font-size: 12px;
