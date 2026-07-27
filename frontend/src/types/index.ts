@@ -47,6 +47,8 @@ export interface ModelUsage {
   avg_latency_ms: number
   prompt_tokens: number
   completion_tokens: number
+  /** null when the server has no price on file for this model. */
+  cost_usd: number | null
 }
 
 export interface ThroughputPoint {
@@ -64,6 +66,10 @@ export interface DashboardStats {
   total_prompt_tokens: number
   total_completion_tokens: number
   total_tokens: number
+  /** Sum over priced models only — see `unpriced_models`. */
+  total_cost_usd: number
+  /** Models with no price on file, so the total can be shown as a floor. */
+  unpriced_models: string[]
   models: ModelUsage[]
   throughput: ThroughputPoint[]
 }

@@ -146,10 +146,18 @@ event, and the endpoint returns 502.
 | GET | `/dashboard` | inference stats for the signed-in user |
 
 Shape: `{total_calls, success_calls, failed_calls, avg_latency_ms,
-total_prompt_tokens, total_completion_tokens, total_tokens, models[]}` where
-each `models[]` row is `{model, calls, avg_latency_ms, prompt_tokens,
-completion_tokens}`. Aggregated from `inference_logs`, scoped to the user's
-conversations.
+total_prompt_tokens, total_completion_tokens, total_tokens, total_cost_usd,
+unpriced_models[], models[], throughput[]}` where each `models[]` row is
+`{model, calls, avg_latency_ms, prompt_tokens, completion_tokens, cost_usd}`.
+Aggregated from `inference_logs`, scoped to the user's conversations.
+
+**Cost is computed at read time from `pricing.py`, never stored.** Prices
+change, so a cost written at ingest would freeze that day's rate; the log rows
+keep token counts and the money is derived per request. A model missing from
+the table reports `cost_usd: null` and is listed in `unpriced_models` rather
+than counting as $0 — that way a newly added model reads as "unknown price"
+instead of quietly free, and `total_cost_usd` is a floor rather than a wrong
+number. Update the rates in one place: `backend/pricing.py`.
 
 ## Database schema
 

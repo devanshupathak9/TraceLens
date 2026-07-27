@@ -15,6 +15,23 @@ const percentFormat = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 1,
 })
 
+/**
+ * Chat-sized spend runs to fractions of a cent, so a flat 2-decimal currency
+ * format would render most real rows as "$0.00". Small amounts get more
+ * decimals; anything at a dollar or more gets the usual two.
+ */
+function formatCost(usd: number | null): string {
+  if (usd === null) return '—'
+  if (usd === 0) return '$0.00'
+  const digits = usd < 0.01 ? 4 : 2
+  return usd.toLocaleString(undefined, {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })
+}
+
 export function Dashboard({ onOpenSidebar }: DashboardProps) {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -65,6 +82,11 @@ export function Dashboard({ onOpenSidebar }: DashboardProps) {
                 value={stats.total_calls === 0 ? '—' : percentFormat.format(stats.success_calls / stats.total_calls)}
                 meter={stats.total_calls === 0 ? null : stats.success_calls / stats.total_calls}
               />
+              <StatTile
+                label="Est. cost"
+                value={formatCost(stats.total_cost_usd)}
+                unit={stats.unpriced_models.length > 0 ? '+' : undefined}
+              />
               <StatTile label="LLM calls" value={numberFormat.format(stats.total_calls)} />
               <StatTile label="Avg latency" value={numberFormat.format(stats.avg_latency_ms)} unit="ms" />
               <StatTile label="Succeeded" value={numberFormat.format(stats.success_calls)} swatch="ok" />
@@ -95,6 +117,7 @@ export function Dashboard({ onOpenSidebar }: DashboardProps) {
                         <th scope="col">Avg latency</th>
                         <th scope="col">Input tokens</th>
                         <th scope="col">Output tokens</th>
+                        <th scope="col">Cost</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -105,11 +128,21 @@ export function Dashboard({ onOpenSidebar }: DashboardProps) {
                           <td>{numberFormat.format(row.avg_latency_ms)} ms</td>
                           <td>{numberFormat.format(row.prompt_tokens)}</td>
                           <td>{numberFormat.format(row.completion_tokens)}</td>
+                          <td className="dashboard-cost">{formatCost(row.cost_usd)}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+              )}
+
+              {/* Says what the dash means and why the total may be a floor,
+                  rather than leaving an unexplained gap in the column. */}
+              {stats.unpriced_models.length > 0 && (
+                <p className="dashboard-note">
+                  No price on file for {stats.unpriced_models.join(', ')}, so those calls are
+                  excluded from the totals. Rates live in <code>backend/pricing.py</code>.
+                </p>
               )}
             </section>
           </div>

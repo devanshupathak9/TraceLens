@@ -4,6 +4,7 @@ from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import Conversation, InferenceLog, InferenceStatus
+from pricing import cost_for
 from schemas import DashboardStats, ModelUsage, ThroughputPoint
 
 # Throughput window. Hourly buckets over a day is enough to see load shape
@@ -65,6 +66,30 @@ class DashboardService:
         )
         throughput_rows = (await self.session.execute(throughput_stmt)).all()
 
+        # Cost is derived here rather than stored on the row: prices change,
+        # and a cost written at ingest time would silently freeze the old rate.
+        models: list[ModelUsage] = []
+        unpriced: list[str] = []
+        total_cost = 0.0
+
+        for model, calls, latency, p, c in model_rows:
+            cost = cost_for(model, p or 0, c or 0)
+            if cost is None:
+                unpriced.append(model)
+            else:
+                total_cost += cost
+
+            models.append(
+                ModelUsage(
+                    model=model,
+                    calls=calls,
+                    avg_latency_ms=int(latency or 0),
+                    prompt_tokens=p or 0,
+                    completion_tokens=c or 0,
+                    cost_usd=cost,
+                )
+            )
+
         return DashboardStats(
             total_calls=total or 0,
             success_calls=success or 0,
@@ -73,16 +98,9 @@ class DashboardService:
             total_prompt_tokens=prompt or 0,
             total_completion_tokens=completion or 0,
             total_tokens=total_tokens or 0,
-            models=[
-                ModelUsage(
-                    model=model,
-                    calls=calls,
-                    avg_latency_ms=int(latency or 0),
-                    prompt_tokens=p or 0,
-                    completion_tokens=c or 0,
-                )
-                for model, calls, latency, p, c in model_rows
-            ],
+            total_cost_usd=round(total_cost, 6),
+            unpriced_models=unpriced,
+            models=models,
             throughput=[
                 ThroughputPoint(bucket=b, calls=calls, failed=failed or 0)
                 for b, calls, failed in throughput_rows

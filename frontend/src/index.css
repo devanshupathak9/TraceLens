@@ -1610,6 +1610,24 @@ ul {
   color: var(--text-muted);
 }
 
+/* Money is the column people scan for, so it carries full-strength ink. */
+.dashboard-cost {
+  color: var(--text);
+  font-weight: 550;
+}
+
+.dashboard-note {
+  margin: 8px 2px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+.dashboard-note code {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
 /* --- responsive --------------------------------------------------------- */
 
 .chat-menu-button,

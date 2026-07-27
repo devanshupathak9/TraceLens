@@ -73,6 +73,9 @@ class ModelUsage(BaseModel):
     avg_latency_ms: int
     prompt_tokens: int
     completion_tokens: int
+    # None means the model isn't in the price table — reported as unknown
+    # rather than as $0, which would read as "this model is free".
+    cost_usd: float | None = None
 
 
 class ThroughputPoint(BaseModel):
@@ -92,6 +95,10 @@ class DashboardStats(BaseModel):
     total_prompt_tokens: int
     total_completion_tokens: int
     total_tokens: int
+    # Sum over the models that have a price; unpriced models are excluded, and
+    # `unpriced_models` names them so the total is never silently short.
+    total_cost_usd: float = 0.0
+    unpriced_models: list[str] = []
     models: list[ModelUsage]
     throughput: list[ThroughputPoint] = []
 
