@@ -32,4 +32,9 @@ EXPOSE 8001
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -fsS http://localhost:8001/health || exit 1
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
+# Binds :: rather than 0.0.0.0 because this service is only ever reached over a
+# private network, and Railway's is IPv6-only — an IPv4-only listener is simply
+# unreachable there, and the SDK swallows the connection error, so events would
+# vanish with nothing in any log. The socket is dual-stack, so IPv4 callers
+# (compose, the healthcheck below) still work.
+CMD ["uvicorn", "main:app", "--host", "::", "--port", "8001"]
