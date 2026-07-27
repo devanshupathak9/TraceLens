@@ -6,7 +6,6 @@
 #
 # No AWS credentials needed — this only packages. Upload the result at
 # Lambda → your function → Code → Upload from → .zip file.
-# Use ./deploy.sh instead if you have the AWS CLI configured.
 set -euo pipefail
 cd "$(dirname "$0")"
 

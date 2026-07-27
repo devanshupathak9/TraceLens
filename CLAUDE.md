@@ -32,9 +32,8 @@ alembic upgrade head -x db_url=postgresql+asyncpg://...   # override the URL ad 
 # whole stack: postgres + migrate job + chat-api + logging-service + frontend
 docker compose up --build  # frontend :3000, chat-api :8000/docs, logging :8001/health
 
-# lambda/
-./build.sh                 # zip for manual console upload (ARCH=arm64 for Graviton)
-./deploy.sh <function>     # same zip, pushed via aws lambda update-function-code
+# lambda/ — deployed by hand: build the zip, upload it in the AWS console
+./build.sh                 # ARCH=arm64 for a Graviton function
 ```
 
 Without `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`, chat falls back to **echo mode** (`(echo) <your message>`), so the full loop is testable with no key and no spend — but no inference events are shipped.
