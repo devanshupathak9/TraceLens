@@ -112,30 +112,88 @@ instead of blocking the queue. Sample test events are in `lambda/test-events/`.
 
 ## Endpoints
 
-All under `/api/v1`. Everything except register/login needs a bearer token.
+### Chat API (`backend/`) — all under `/api/v1`
 
-| | |
-|---|---|
-| `POST /users/register` · `POST /users/login` · `GET /users/me` | auth |
-| `GET/POST /conversations` · `GET/PATCH/DELETE /conversations/{id}` | conversations |
-| `POST /conversations/{id}/messages` | one turn, non-streaming |
-| `POST /conversations/{id}/messages/stream` | one turn, SSE |
-| `GET /dashboard` | deployment-wide inference stats |
+| Method | Path | Auth | Purpose | Returns / notes |
+|---|---|:---:|---|---|
+| `POST` | `/users/register` | — | Create an account; Argon2id hashes the password | `201` + JWT and user. `409` if the email is taken |
+| `POST` | `/users/login` | — | Exchange email + password for a token | `200` + JWT and user. `401` on bad credentials |
+| `GET` | `/users/me` | ✔ | Resolve the bearer token to a user | The frontend calls this on boot to validate a stored token |
+| `POST` | `/users/logout` | ✔ | Client-side sign-out | JWTs are stateless, so nothing is revoked — the endpoint exists so a blocklist can slot in later |
+| `POST` | `/conversations` | ✔ | Start a conversation (title + model) | `201` + summary. Called lazily on first send, so an abandoned "New chat" leaves no row |
+| `GET` | `/conversations` | ✔ | List the caller's conversations for the sidebar | Each summary carries `message_count`, ordered by `last_active_at` |
+| `GET` | `/conversations/{id}` | ✔ | One conversation with its messages | `404` if it isn't the caller's — never `403`, which would confirm the id exists |
+| `PATCH` | `/conversations/{id}` | ✔ | Rename | `200` + updated summary |
+| `DELETE` | `/conversations/{id}` | ✔ | Delete the conversation | `204`. Messages and logs go with it via `ON DELETE CASCADE` |
+| `GET` | `/conversations/{id}/messages` | ✔ | The transcript, oldest first | Used when resuming a conversation |
+| `POST` | `/conversations/{id}/messages` | ✔ | One chat turn, non-streaming | Returns both stored messages. `502` if the provider fails, `499` if the client disconnected |
+| `POST` | `/conversations/{id}/messages/stream` | ✔ | The same turn over SSE | Frames: `delta {text}` … `done {user_message, assistant_message}` or `error {detail}` |
+| `GET` | `/dashboard` | ✔ | Deployment-wide inference stats | Aggregates only — volume, success rate, latency, tokens, per-model spend, hourly throughput |
+| `GET` | `/health` | — | Liveness | Used by the platform health check |
 
-Ingestion service: `POST /api/v1/logs`, `GET /health`.
+### Ingestion service (`logging-service/`)
 
-Full reference: `backend/README.md`.
+| Method | Path | Auth | Purpose | Returns / notes |
+|---|---|:---:|---|---|
+| `POST` | `/api/v1/logs` | — | Accept one inference event and publish it to SQS | `200 {"received": 1}` as soon as it validates. `422` on a malformed body; only `model` and `latency_ms` are required |
+| `GET` | `/health` | — | Liveness | Startup logs say `NO QUEUE_URL SET` when the queue is unconfigured |
+
+Full request/response reference: `backend/README.md`.
 
 ## Schema
 
-**users → conversations → messages**, with **inference_logs** alongside.
+**users → conversations → messages**, with **inference_logs** hanging off conversations.
+Every table's primary key is a surrogate `id` (`integer`, auto-increment).
 
-| Table | Holds |
-|---|---|
-| `users` | account, Argon2id hash |
-| `conversations` | title, model, `last_active_at` (the sidebar sort key) |
-| `messages` | role + content, append-only |
-| `inference_logs` | provider, model, tokens, latency, status, previews, `created_at` |
+### `users` — accounts
+
+| Column | Type | Key / index | Purpose |
+|---|---|---|---|
+| `id` | `integer` | **PK** | Surrogate identity |
+| `name` | `varchar(100)` | | Display name |
+| `email` | `varchar(320)` | **unique index** `ix_users_email` | Login identity; the index enforces uniqueness *and* serves the login lookup |
+| `password_hash` | `varchar(255)` | | Argon2id hash — the plaintext is never stored |
+| `created_at` / `updated_at` | `timestamptz` | | Row audit; `updated_at` refreshes via `onupdate` |
+
+### `conversations` — one chat thread
+
+| Column | Type | Key / index | Purpose |
+|---|---|---|---|
+| `id` | `integer` | **PK** | Surrogate identity |
+| `user_id` | `integer` | **FK** → `users.id` `ON DELETE CASCADE` | Owner. Every query is scoped by it, which is what makes ownership checks 404s |
+| `title` | `varchar(200)` | | Sidebar label, defaults to `"New chat"` |
+| `model` | `varchar(100)` | | The model this thread talks to; picks the provider strategy |
+| `created_at` | `timestamptz` | | When the thread started |
+| `last_active_at` | `timestamptz` | composite index below | Sidebar sort key — bumped on every turn |
+| | | **index** `ix_conversations_user_id_last_active_at` (`user_id`, `last_active_at`) | Serves the one hot query: this user's threads, most recent first |
+
+### `messages` — the transcript, append-only
+
+| Column | Type | Key / index | Purpose |
+|---|---|---|---|
+| `id` | `integer` | **PK** | Surrogate identity |
+| `conversation_id` | `integer` | **FK** → `conversations.id` `ON DELETE CASCADE` | Parent thread |
+| `role` | `varchar(16)` + CHECK | | `user` \| `assistant`. VARCHAR + CHECK, not a native enum — adding a value is a trivial migration |
+| `content` | `text` | | The full message. Never truncated, never redacted |
+| `created_at` | `timestamptz` | composite index below | Ordering within the thread |
+| | | **index** `ix_messages_conversation_id_created_at` (`conversation_id`, `created_at`) | Loading a transcript oldest-first in one index scan |
+
+### `inference_logs` — the observability record, written only by the Lambda
+
+| Column | Type | Key / index | Purpose |
+|---|---|---|---|
+| `id` | `integer` | **PK** | Surrogate identity |
+| `conversation_id` | `integer` | **FK** → `conversations.id` `ON DELETE CASCADE`, **index** `ix_inference_logs_conversation_id` | Ties a call back to its thread |
+| `provider` | `varchar(50)` | **index** `ix_inference_logs_provider` | `openai` \| `anthropic`; grouped in the dashboard |
+| `model` | `varchar(100)` | **index** `ix_inference_logs_model` | Model id — the per-model breakdown and the cost lookup key |
+| `prompt_tokens` | `integer` | | Input usage. Defaults to 0, never NULL, so aggregates never need `COALESCE` |
+| `completion_tokens` | `integer` | | Output usage, same rule |
+| `total_tokens` | `integer` | CHECK `total_tokens_matches_sum` | Sum of the two; the constraint stops a bad producer writing an inconsistent row |
+| `input_text` | `text` | | 200-char PII-redacted preview of the prompt — a debugging sample, **not** the transcript |
+| `output_text` | `text` | | Same for the reply |
+| `latency_ms` | `integer` | | Wall-clock duration of the call; the only field besides `model` the SDK requires |
+| `status` | `varchar(16)` + CHECK | | `success` \| `failed`. A failed call leaves a log row and no message row |
+| `created_at` | `timestamptz` | **index** `ix_inference_logs_created_at` | **Call time**, stamped by the SDK and carried through the queue — not insert time, which lags by the queue delay. Indexed because every dashboard query is a time-window scan |
 
 Decisions worth naming:
 
