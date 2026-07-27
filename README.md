@@ -11,7 +11,6 @@ The point of the split: the chat app never knows it is being observed. No call
 site in the backend mentions logging, and nothing in the pipeline can slow the
 chat down or break it.
 
-**Live demo:** _paste link_
 
 ---
 
