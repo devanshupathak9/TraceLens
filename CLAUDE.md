@@ -9,7 +9,7 @@ Two products in one repo:
 - **ChatJippity** — a ChatGPT-style chat app (`frontend/` + `backend/`).
 - **TraceLens** — the observability around it: an SDK that auto-instruments the LLM calls (`sdk/`), a service that ingests the events (`logging-service/`), and a worker that persists them (`lambda/`). The chat app's Dashboard reads the result back.
 
-All four Python/TS services are implemented and deployed. `backend/README.md` (full API + schema reference), `sdk/README.md`, and `DEPLOY.md` (Vercel + Render + Supabase + SQS/Lambda topology) are current — read them before changing contracts.
+All four Python/TS services are implemented and deployed. `README.md` (overview + setup), `ARCHITECTURE.md` (ingestion flow, failure handling, tradeoffs), `backend/README.md` (full API + schema reference), and `sdk/README.md` are current — read them before changing contracts.
 
 ## Commands
 
