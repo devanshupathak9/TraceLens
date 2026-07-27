@@ -1487,11 +1487,42 @@ ul {
 }
 
 .stat-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 11.5px;
   font-weight: 550;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-muted);
+}
+
+/* Ties a tile to its series in the chart. The label spells out which series it
+   is, so this is a second channel rather than the only one. */
+.stat-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex: none;
+}
+
+/* Proportion bar under a rate. Track is one step off the surface so an empty
+   meter still reads as a meter rather than as missing. */
+.stat-meter {
+  display: block;
+  height: 4px;
+  margin-top: 2px;
+  border-radius: 999px;
+  background: var(--surface-active);
+  overflow: hidden;
+}
+
+.stat-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--chart-ok);
+  transition: width 320ms var(--ease);
 }
 
 .stat-value {
@@ -1654,6 +1685,24 @@ ul {
   .jump-button:hover {
     transform: translateX(-50%);
   }
+
+  /* Tooltips still appear, they just don't travel to get there. */
+  .chart-tip,
+  .chart-col:hover .chart-tip {
+    transition: opacity 120ms var(--ease);
+    transform: translateX(-50%);
+  }
+
+  .chart-col-start .chart-tip,
+  .chart-col-start:hover .chart-tip,
+  .chart-col-end .chart-tip,
+  .chart-col-end:hover .chart-tip {
+    transform: none;
+  }
+
+  .stat-meter-fill {
+    transition: none;
+  }
 }
 
 /* --- dashboard throughput chart ----------------------------------------- */
@@ -1661,6 +1710,34 @@ ul {
 /* A stacked bar per hour bucket: succeeded below, failed above. Built from divs
    rather than a chart library — two series over 24 buckets doesn't justify the
    dependency, and this inherits the theme tokens for free. */
+/* Positioning context for the peak line and the hover tooltips, which are
+   anchored to their column but must be able to sit above the plot. */
+.chart-plot {
+  position: relative;
+}
+
+/* Single hairline at the tallest bucket — the scale the bars are drawn to.
+   Solid and one step off the surface, so it stays behind the data. */
+.chart-peak {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  border-top: 1px solid var(--border);
+  pointer-events: none;
+}
+
+.chart-peak-label {
+  position: absolute;
+  right: 0;
+  top: -8px;
+  padding-left: 6px;
+  background: var(--bg);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+}
+
 .chart {
   display: flex;
   align-items: flex-end;
@@ -1680,6 +1757,13 @@ ul {
   /* 2px of surface between adjacent bars, per the mark spec. */
   gap: 2px;
   height: 100%;
+  transition: opacity 140ms var(--ease);
+}
+
+/* Hovering one bucket recedes the others rather than highlighting the target:
+   no colour change, so the series stay readable while comparing. */
+.chart:hover .chart-col:not(:hover) {
+  opacity: 0.45;
 }
 
 /* Rounded data-ends only at the top of the stack; the base stays square so the
@@ -1709,6 +1793,71 @@ ul {
   height: 2px;
   background: var(--border);
   border-radius: 2px;
+}
+
+/* Per-bucket tooltip. Replaces the native `title`, which is slow to appear,
+   can't be themed, and never shows on touch. Hidden from assistive tech — the
+   same numbers are in the table below the chart. */
+.chart-tip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(3px);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--text);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms var(--ease), transform 120ms var(--ease);
+}
+
+.chart-col:hover .chart-tip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Columns near either end would push their tooltip past the plot edge, so the
+   first and last few anchor to their own edge instead of centring. */
+.chart-col-start .chart-tip {
+  left: 0;
+  transform: translateX(0) translateY(3px);
+}
+
+.chart-col-start:hover .chart-tip {
+  transform: translateX(0) translateY(0);
+}
+
+.chart-col-end .chart-tip {
+  left: auto;
+  right: 0;
+  transform: translateX(0) translateY(3px);
+}
+
+.chart-col-end:hover .chart-tip {
+  transform: translateX(0) translateY(0);
+}
+
+.chart-tip-hour {
+  font-weight: 600;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.chart-tip-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
 }
 
 .chart-axis {

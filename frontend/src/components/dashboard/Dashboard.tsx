@@ -10,6 +10,10 @@ interface DashboardProps {
 }
 
 const numberFormat = new Intl.NumberFormat()
+const percentFormat = new Intl.NumberFormat(undefined, {
+  style: 'percent',
+  maximumFractionDigits: 1,
+})
 
 export function Dashboard({ onOpenSidebar }: DashboardProps) {
   const [stats, setStats] = useState<DashboardStats | null>(null)
@@ -53,12 +57,21 @@ export function Dashboard({ onOpenSidebar }: DashboardProps) {
         <div className="dashboard-scroll">
           <div className="dashboard">
             <section className="stat-grid" aria-label="Inference totals">
+              {/* The headline for an observability view: everything else is
+                  volume, this is health. Shows a dash rather than 0% or NaN
+                  before any call has been recorded. */}
+              <StatTile
+                label="Success rate"
+                value={stats.total_calls === 0 ? '—' : percentFormat.format(stats.success_calls / stats.total_calls)}
+                meter={stats.total_calls === 0 ? null : stats.success_calls / stats.total_calls}
+              />
               <StatTile label="LLM calls" value={numberFormat.format(stats.total_calls)} />
               <StatTile label="Avg latency" value={numberFormat.format(stats.avg_latency_ms)} unit="ms" />
+              <StatTile label="Succeeded" value={numberFormat.format(stats.success_calls)} swatch="ok" />
+              <StatTile label="Failed" value={numberFormat.format(stats.failed_calls)} swatch="fail" />
               <StatTile label="Input tokens" value={numberFormat.format(stats.total_prompt_tokens)} />
               <StatTile label="Output tokens" value={numberFormat.format(stats.total_completion_tokens)} />
-              <StatTile label="Succeeded" value={numberFormat.format(stats.success_calls)} />
-              <StatTile label="Failed" value={numberFormat.format(stats.failed_calls)} />
+              <StatTile label="Total tokens" value={numberFormat.format(stats.total_tokens)} />
             </section>
 
             <section aria-label="Throughput">
@@ -147,27 +160,48 @@ function Throughput({ points }: { points: ThroughputPoint[] }) {
         </span>
       </p>
 
-      <div className="chart" role="img" aria-label={`Calls per hour over the last ${HOURS} hours`}>
-        {buckets.map((bucket) => {
-          const failedHeight = (bucket.failed / peak) * 100
-          const okHeight = ((bucket.calls - bucket.failed) / peak) * 100
-          return (
-            <div
-              key={bucket.at}
-              className={bucket.calls === 0 ? 'chart-col chart-col-empty' : 'chart-col'}
-              title={`${hourTitle.format(bucket.at)} — ${bucket.calls} call${
-                bucket.calls === 1 ? '' : 's'
-              }, ${bucket.failed} failed`}
-            >
-              {bucket.failed > 0 && (
-                <div className="chart-seg chart-seg-fail" style={{ height: `${failedHeight}%` }} />
-              )}
-              {bucket.calls - bucket.failed > 0 && (
-                <div className="chart-seg chart-seg-ok" style={{ height: `${okHeight}%` }} />
-              )}
-            </div>
-          )
-        })}
+      {/* The peak gives the bars a scale — without it the tallest column could
+          be three calls or three hundred. One hairline rather than a grid: the
+          exact numbers live in the tooltip and the table below. */}
+      <div className="chart-plot">
+        <div className="chart-peak" aria-hidden="true">
+          <span className="chart-peak-label">{numberFormat.format(peak)}</span>
+        </div>
+
+        <div className="chart" role="img" aria-label={`Calls per hour over the last ${HOURS} hours`}>
+          {buckets.map((bucket, index) => {
+            const failedHeight = (bucket.failed / peak) * 100
+            const okHeight = ((bucket.calls - bucket.failed) / peak) * 100
+            // The tooltip is anchored to its column, so the first and last few
+            // would overflow the plot if they stayed centred.
+            const edge = index < 3 ? ' chart-col-start' : index > HOURS - 4 ? ' chart-col-end' : ''
+            return (
+              <div
+                key={bucket.at}
+                className={(bucket.calls === 0 ? 'chart-col chart-col-empty' : 'chart-col') + edge}
+              >
+                <span className="chart-tip" aria-hidden="true">
+                  <span className="chart-tip-hour">{hourTitle.format(bucket.at)}</span>
+                  <span className="chart-tip-row">
+                    <span className="chart-swatch chart-swatch-ok" />
+                    {bucket.calls - bucket.failed} succeeded
+                  </span>
+                  <span className="chart-tip-row">
+                    <span className="chart-swatch chart-swatch-fail" />
+                    {bucket.failed} failed
+                  </span>
+                </span>
+
+                {bucket.failed > 0 && (
+                  <div className="chart-seg chart-seg-fail" style={{ height: `${failedHeight}%` }} />
+                )}
+                {bucket.calls - bucket.failed > 0 && (
+                  <div className="chart-seg chart-seg-ok" style={{ height: `${okHeight}%` }} />
+                )}
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       {/* Every sixth hour is labelled; the rest are spacers keeping the columns
@@ -205,14 +239,33 @@ function Throughput({ points }: { points: ThroughputPoint[] }) {
   )
 }
 
-function StatTile({ label, value, unit }: { label: string; value: string; unit?: string }) {
+interface StatTileProps {
+  label: string
+  value: string
+  unit?: string
+  /** 0–1: draws a meter under the value. `null` renders the track empty. */
+  meter?: number | null
+  /** Ties the tile to a chart series. The label always says which, so this
+      is a second channel rather than colour carrying the meaning alone. */
+  swatch?: 'ok' | 'fail'
+}
+
+function StatTile({ label, value, unit, meter, swatch }: StatTileProps) {
   return (
     <div className="stat-tile">
-      <span className="stat-label">{label}</span>
+      <span className="stat-label">
+        {swatch && <span className={`stat-swatch chart-swatch-${swatch}`} aria-hidden="true" />}
+        {label}
+      </span>
       <span className="stat-value">
         {value}
         {unit && <span className="stat-unit"> {unit}</span>}
       </span>
+      {meter !== undefined && (
+        <span className="stat-meter" aria-hidden="true">
+          <span className="stat-meter-fill" style={{ width: `${(meter ?? 0) * 100}%` }} />
+        </span>
+      )}
     </div>
   )
 }
